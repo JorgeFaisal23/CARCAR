@@ -1,36 +1,146 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CARCAR
 
-## Getting Started
+**CARCAR** es la plataforma de gestión de rentas: edificios con múltiples
+unidades, control de servicios, cobros de renta, calendario unificado con
+reservas de corta estancia y portal para inquilinos.
 
-First, run the development server:
+## Dos identidades
+
+No hay que confundirlas:
+
+| | Qué es | Dónde vive | Quién la cambia |
+|---|---|---|---|
+| **CARCAR** | El producto | `src/lib/app.ts` | Nadie desde la app: es fija |
+| **Marca del arrendador** | Nombre, logo, color y tipografía de quien renta | Tabla `Organization` | El dueño, en `/configuracion/marca` |
+
+La marca del arrendador viste la interfaz completa (panel, portal y acceso);
+CARCAR aparece solo en los márgenes: pie del menú lateral, pie del portal,
+pantalla de acceso, página de planes, favicon y metadatos. El distintivo del
+producto usa su propio color (`APP.color`) para que no cambie con el color de
+marca que elija cada cliente.
+
+## Cuentas de demostración
+
+Contraseña para todas: **`demo1234`**. En la pantalla de acceso hay botones que
+llenan el formulario con cada perfil.
+
+| Correo | Rol | Qué puede hacer |
+|---|---|---|
+| `dueno@demo.mx` | Arrendador | Todo, incluida la marca y el plan |
+| `admin@demo.mx` | Administrativo | Propiedades, servicios, cobros e inquilinos |
+| `consulta@demo.mx` | Consulta | **Solo lectura**: resumen y calendario |
+| `inquilino@demo.mx` | Inquilino | Portal con su contrato, pagos y servicios |
+
+## Puesta en marcha
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run db:push     # crea las tablas en la base de datos
+npm run db:seed     # carga los datos de demostración
+npm run dev         # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Variables de entorno (ver `.env.example`):
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Variable | Para qué |
+|---|---|
+| `DATABASE_URL` | Conexión agrupada de Neon; la usa la app en ejecución |
+| `DIRECT_URL` | Conexión directa (sin `-pooler`); Prisma la necesita para crear o alterar tablas |
+| `AUTH_SECRET` | Clave con la que se firman las sesiones |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Otros comandos:
 
-## Learn More
+```bash
+npm run db:reset    # borra todo y vuelve a sembrar
+npm run db:studio   # explorador de la base de datos
+npm run build       # build de producción
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Cómo está organizado
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+prisma/
+  schema.prisma          modelo de datos
+  seed.ts                datos de demostración
+src/
+  app/
+    login/               acceso
+    (dashboard)/         panel administrativo (menú lateral)
+    (portal)/portal/     portal del inquilino (sin menú lateral)
+  components/
+    ui/                  componentes de shadcn/ui (Base UI)
+    shared/              piezas propias reutilizables
+    layout/              menú lateral, menú de usuario, avisos
+    premium/             muro de pago
+  lib/
+    auth/                sesión con JWT firmado (jose)
+    queries/             lecturas de base de datos, una por módulo
+    services/            reparto de recibos de edificio
+    brand.ts             identidad de marca → variables CSS
+    labels.ts            textos en español y semáforo de estados
+  server/actions/        Server Actions (escrituras)
+  proxy.ts               control de acceso por rol
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Decisiones que conviene conocer
 
-## Deploy on Vercel
+- **Comprobante de pago con la cámara.** Al registrar un pago se puede adjuntar
+  una foto del recibo o de la transferencia. El botón "Tomar foto" usa
+  `capture="environment"`, así que en celular abre la cámara directamente. El
+  comprobante es **opcional**: obligarlo bloquearía los pagos en efectivo que se
+  registran sin papel. Se ve desde Cobros, desde la ficha del inquilino y desde
+  el portal del propio inquilino; si se deshace el pago, el comprobante se borra
+  con él porque era la evidencia de ese pago.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **Sesión propia en vez de NextAuth.** Un JWT firmado con `jose` (~60 líneas en
+  `src/lib/auth/`) cubre login por credenciales y funciona igual en el runtime
+  Edge del proxy y en las Server Actions, sin depender de una beta.
+- **Marca como variables CSS.** `src/lib/brand.ts` convierte el color, el radio y
+  la tipografía guardados en `Organization` en tokens que se inyectan en el
+  layout raíz durante el render en servidor. Por eso el cambio de marca se
+  aplica en el primer pintado, sin parpadeo, y alcanza al panel, al portal y a
+  la pantalla de acceso. Ningún componente escribe un color a mano.
+- **`<select>` nativo en los formularios.** En celular abre el selector del
+  sistema; la demo se muestra en teléfono.
+- **Prisma 7 con driver adapter.** Las URLs viven en `prisma7.config.ts`, no en
+  el esquema. Se usa `db push` en vez de migraciones: es una demo y así el
+  esquema y la base se mantienen sincronizados sin historial que administrar.
+- **El color de los estados no es el color de marca.** Verde/ámbar/rojo y los
+  colores del calendario están fuera de los tokens de marca a propósito:
+  distinguir "vencido" de "pagado" es información, no estilo, y debe seguir
+  siendo legible con cualquier color que elija el arrendador.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Alcance de la demo
+
+- **La pantalla de Integraciones está oculta del menú.** La sincronización con
+  Airbnb es simulada, así que por ahora no se muestra en la demostración. El
+  código y los datos siguen intactos: para volver a mostrarla, pon
+  `SHOW_AIRBNB_INTEGRATION = true` en
+  [`src/lib/features.ts`](src/lib/features.ts). Las reservas de corta estancia
+  siguen visibles en el calendario y en la ficha de cada unidad.
+- **Airbnb está simulado.** El botón "Sincronizar ahora" no consulta Airbnb: solo
+  actualiza la marca de tiempo y refresca las reservas ya sembradas. El camino
+  real (importar el enlace iCal del anuncio) y sus limitaciones están
+  documentados en [`src/lib/airbnb/README.md`](src/lib/airbnb/README.md).
+- **Premium se puede encender y apagar** desde `/premium` con la cuenta del
+  arrendador, para enseñar el antes y el después. En producción ese cambio lo
+  dispararía el cobro.
+- **Las imágenes se guardan como data URL** en la base de datos: el logo de la
+  marca y los comprobantes de pago. Antes de subirse, los comprobantes se
+  reescalan y recomprimen a JPEG en el navegador
+  ([`src/lib/images.ts`](src/lib/images.ts)), así una foto de celular de 5 MB
+  acaba pesando unos 200 KB. Para producción esto debe moverse a un
+  almacenamiento de archivos (Vercel Blob o S3) y dejar en la base solo la ruta.
+- **Todos los datos son ficticios.**
+
+## Despliegue en Vercel
+
+1. Sube el repositorio a GitHub e impórtalo en Vercel.
+2. Configura `DATABASE_URL`, `DIRECT_URL` y `AUTH_SECRET` en el proyecto.
+3. El `postinstall` ya ejecuta `prisma generate`. Las tablas se crean con
+   `npm run db:push` y los datos con `npm run db:seed` (ambos apuntan a la misma
+   base de Neon, así que basta con haberlos corrido una vez desde tu máquina).
+
+> La base gratuita de Neon se suspende tras un rato de inactividad: conviene
+> abrir la demo un minuto antes de presentarla para que la primera carga no
+> tarde.

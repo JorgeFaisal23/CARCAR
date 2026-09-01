@@ -1,0 +1,328 @@
+// Esquema de la plataforma de gestión de rentas.
+// Jerarquía: Organization -> Building -> Unit -> (Lease | Booking)
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------- Organización
+
+enum Plan {
+  FREE
+  PREMIUM
+}
+
+enum BorderRadius {
+  SHARP
+  SOFT
+  ROUND
+}
+
+/// Fila única. Guarda el plan (muro de pago) y la identidad de marca editable
+/// desde /configuracion/marca. Los colores se guardan en hex y se convierten a
+/// tokens CSS en src/lib/brand.ts.
+model Organization {
+  id                 String       @id @default(cuid())
+  name               String
+  plan               Plan         @default(FREE)
+  brandName          String       @default("Rentas")
+  logoUrl            String? // data URL en la demo; migrar a blob storage en producción
+  primaryColor       String       @default("#0F766E")
+  radius             BorderRadius @default(SOFT)
+  fontFamily         String       @default("Inter")
+  loginBackgroundUrl String?
+  contactEmail       String?
+  contactPhone       String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+}
+
+// ---------------------------------------------------------------- Usuarios
+
+enum Role {
+  OWNER // arrendador
+  ADMIN // personal administrativo
+  VIEWER // solo lectura: consulta del calendario
+  TENANT // inquilino o huésped
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  phone        String?
+  documentId   String? // identificación oficial
+  role         Role     @default(TENANT)
+  active       Boolean  @default(true)
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  leases    Lease[]
+  bookings  Booking[]
+  auditLogs AuditLog[]
+
+  @@index([role])
+}
+
+// ---------------------------------------------------------------- Propiedades
+
+enum UnitType {
+  ROOM
+  APARTMENT
+  STUDIO
+  COMMERCIAL
+}
+
+enum UnitStatus {
+  AVAILABLE
+  OCCUPIED
+  SHORT_TERM
+  MAINTENANCE
+}
+
+model Building {
+  id        String   @id @default(cuid())
+  name      String
+  address   String
+  city      String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  units           Unit[]
+  serviceAccounts ServiceAccount[]
+}
+
+model Unit {
+  id          String     @id @default(cuid())
+  buildingId  String
+  building    Building   @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  code        String // "101", "A-2"
+  name        String?
+  type        UnitType   @default(ROOM)
+  status      UnitStatus @default(AVAILABLE)
+  floor       Int?
+  bedrooms    Int        @default(1)
+  bathrooms   Int        @default(1)
+  sizeM2      Float?
+  baseRent    Decimal    @db.Decimal(12, 2)
+  description String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  leases           Lease[]
+  bookings         Booking[]
+  serviceAccounts  ServiceAccount[]
+  airbnbConnection AirbnbConnection?
+
+  @@unique([buildingId, code])
+  @@index([buildingId])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------- Servicios
+
+enum ServiceType {
+  WATER
+  ELECTRICITY
+  INTERNET
+  MAINTENANCE
+  GAS
+  OTHER
+}
+
+enum ServiceScope {
+  BUILDING
+  UNIT
+}
+
+/// Cómo se reparte un recibo de edificio entre sus unidades.
+enum SplitMode {
+  NONE
+  EQUAL
+  BY_SIZE
+}
+
+/// Contrato de servicio. Vive a nivel edificio (recibo global de luz) o a nivel
+/// unidad. `includedInRent` es el indicador Sí/No del requisito 1.
+model ServiceAccount {
+  id             String       @id @default(cuid())
+  type           ServiceType
+  scope          ServiceScope
+  buildingId     String?
+  building       Building?    @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  unitId         String?
+  unit           Unit?        @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  providerName   String?
+  contractNumber String? // número de contrato/servicio
+  includedInRent Boolean      @default(false)
+  splitMode      SplitMode    @default(NONE)
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  charges ServiceCharge[]
+
+  @@index([buildingId])
+  @@index([unitId])
+}
+
+enum ChargeStatus {
+  PENDING
+  PAID
+  PARTIAL
+  OVERDUE
+}
+
+/// Monto capturado manualmente para un periodo (YYYY-MM).
+model ServiceCharge {
+  id               String         @id @default(cuid())
+  serviceAccountId String
+  serviceAccount   ServiceAccount @relation(fields: [serviceAccountId], references: [id], onDelete: Cascade)
+  period           String // "2026-08"
+  amount           Decimal        @db.Decimal(12, 2)
+  dueDate          DateTime?
+  status           ChargeStatus   @default(PENDING)
+  paidAt           DateTime?
+  notes            String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@unique([serviceAccountId, period])
+  @@index([period])
+}
+
+// ---------------------------------------------------------------- Contratos
+
+enum LeaseStatus {
+  DRAFT
+  ACTIVE
+  ENDED
+  CANCELLED
+}
+
+model Lease {
+  id            String      @id @default(cuid())
+  unitId        String
+  unit          Unit        @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  tenantId      String
+  tenant        User        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  startDate     DateTime
+  endDate       DateTime
+  rentAmount    Decimal     @db.Decimal(12, 2)
+  depositAmount Decimal?    @db.Decimal(12, 2)
+  paymentDay    Int         @default(1)
+  status        LeaseStatus @default(ACTIVE)
+  notes         String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  rentCharges RentCharge[]
+
+  @@index([unitId, status])
+  @@index([tenantId])
+}
+
+model RentCharge {
+  id         String       @id @default(cuid())
+  leaseId    String
+  lease      Lease        @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+  period     String // "2026-08"
+  dueDate    DateTime
+  amount     Decimal      @db.Decimal(12, 2)
+  paidAmount Decimal      @default(0) @db.Decimal(12, 2)
+  status     ChargeStatus @default(PENDING)
+  paidAt     DateTime?
+  method     String?
+  reference  String?
+  /// Comprobante del pago (foto del recibo o de la transferencia).
+  /// En la demo se guarda como data URL; en producción debe moverse a un
+  /// almacenamiento de archivos y dejar aquí solo la ruta.
+  receiptUrl String?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@unique([leaseId, period])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------- Reservas
+
+enum BookingSource {
+  AIRBNB
+  DIRECT
+  MANUAL
+}
+
+enum BookingStatus {
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+model Booking {
+  id          String        @id @default(cuid())
+  unitId      String
+  unit        Unit          @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  source      BookingSource @default(MANUAL)
+  externalId  String? // id de la reserva en el canal de origen
+  guestName   String
+  guestEmail  String?
+  guestPhone  String?
+  guestUserId String?
+  guestUser   User?         @relation(fields: [guestUserId], references: [id], onDelete: SetNull)
+  checkIn     DateTime
+  checkOut    DateTime
+  guests      Int           @default(1)
+  totalAmount Decimal       @db.Decimal(12, 2)
+  status      BookingStatus @default(CONFIRMED)
+  notes       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([unitId, checkIn, checkOut])
+  @@index([checkIn])
+}
+
+enum ConnectionStatus {
+  CONNECTED
+  ERROR
+  DISCONNECTED
+}
+
+/// Conexión con Airbnb. En la demo la sincronización es simulada; el camino real
+/// es importar el enlace iCal del anuncio (ver src/lib/airbnb/README.md).
+model AirbnbConnection {
+  id           String           @id @default(cuid())
+  unitId       String           @unique
+  unit         Unit             @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  listingName  String
+  listingUrl   String?
+  icalUrl      String?
+  status       ConnectionStatus @default(CONNECTED)
+  lastSyncedAt DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+}
+
+// ---------------------------------------------------------------- Bitácora
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  entity    String
+  entityId  String?
+  detail    String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
