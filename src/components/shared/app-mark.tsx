@@ -31,8 +31,8 @@ export function AppMark({
         stroke={solid ? "#ffffff" : "currentColor"}
         strokeLinecap="round"
       >
-        <path d="M21.16 8.63A9 9 0 1 0 21.16 23.37" strokeWidth="3" />
-        <path d="M18.29 12.72A4 4 0 1 0 18.29 19.28" strokeWidth="2.5" />
+        <path d="M21.16 8.63A9 9 0 1 0 21.16 23.37" strokeWidth="3.2" />
+        <path d="M18.6 12.3A4.4 4.4 0 1 0 18.6 19.7" strokeWidth="2" />
       </g>
     </svg>
   );
