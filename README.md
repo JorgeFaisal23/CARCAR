@@ -141,6 +141,24 @@ src/
    `npm run db:push` y los datos con `npm run db:seed` (ambos apuntan a la misma
    base de Neon, así que basta con haberlos corrido una vez desde tu máquina).
 
-> La base gratuita de Neon se suspende tras un rato de inactividad: conviene
-> abrir la demo un minuto antes de presentarla para que la primera carga no
-> tarde.
+## Despliegue en Render
+
+El repositorio incluye [`render.yaml`](render.yaml), así que no hay que
+configurar nada a mano:
+
+1. En Render: **New > Blueprint**, elige el repositorio y aplica el blueprint.
+2. Render pedirá `DATABASE_URL`, `DIRECT_URL` y `AUTH_SECRET` (están marcadas
+   `sync: false` para que los secretos no vivan en el repositorio).
+3. Construye con `npm ci && npm run build` y arranca con `npm run start`. El
+   `postinstall` genera el cliente de Prisma; `next start` escucha en el `PORT`
+   que asigna Render.
+
+Las tablas y los datos no se crean en el despliegue: corre `npm run db:push` y
+`npm run db:seed` una vez desde tu máquina contra la misma base de Neon. Se
+deja fuera del build a propósito, para que un despliegue no pueda alterar el
+esquema de la base en producción.
+
+> La base gratuita de Neon se suspende tras un rato de inactividad, y el plan
+> gratuito de Render también apaga el servicio cuando no recibe tráfico:
+> conviene abrir la demo un par de minutos antes de presentarla para que la
+> primera carga no tarde.

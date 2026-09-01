@@ -1,0 +1,23 @@
+# Blueprint de Render. En el panel: New > Blueprint, apunta al repo y Render
+# lee este archivo. Las tres variables marcadas `sync: false` se piden al
+# crear el servicio (no se guardan aquí: `.env` está en .gitignore).
+services:
+  - type: web
+    name: carcar
+    runtime: node
+    plan: free
+    # Neon vive en us-east-2, así que Ohio deja la base al lado del servidor.
+    region: ohio
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      # Conexión con pooler: la usa la app en cada request.
+      - key: DATABASE_URL
+        sync: false
+      # Conexión directa: solo la usan `db push` y `db seed`.
+      - key: DIRECT_URL
+        sync: false
+      - key: AUTH_SECRET
+        sync: false
