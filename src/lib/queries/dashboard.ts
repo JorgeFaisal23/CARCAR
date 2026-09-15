@@ -8,13 +8,20 @@ import { periodKey, toNumber, daysBetween } from "@/lib/format";
 
 const DAYS_BEFORE_EXPIRY_WARNING = 60;
 
-export async function getDashboardData() {
+export async function getDashboardData(organizationId?: string | null) {
   const now = new Date();
   const period = periodKey(now);
+
+  const orgFilter = organizationId ? { organizationId } : undefined;
+  const buildingFilter = organizationId ? { building: orgFilter } : undefined;
+  const unitBuildingFilter = organizationId
+    ? { unit: { building: orgFilter } }
+    : undefined;
 
   const [units, rentCharges, serviceCharges, leases, upcomingBookings, serviceAccounts] =
     await Promise.all([
       prisma.unit.findMany({
+        where: buildingFilter,
         select: {
           id: true,
           code: true,
@@ -24,15 +31,44 @@ export async function getDashboardData() {
         },
       }),
       prisma.rentCharge.findMany({
-        where: { period },
-        select: { amount: true, paidAmount: true, status: true },
+        where: {
+          period,
+          ...(organizationId
+            ? { lease: { unit: { building: orgFilter } } }
+            : {}),
+        },
+        select: {
+          amount: true,
+          paidAmount: true,
+          status: true,
+          lease: {
+            select: {
+              unit: { select: { currency: true } },
+            },
+          },
+        },
       }),
       prisma.serviceCharge.findMany({
-        where: { period },
+        where: {
+          period,
+          ...(organizationId
+            ? {
+                serviceAccount: {
+                  OR: [
+                    { building: orgFilter },
+                    { unit: { building: orgFilter } },
+                  ],
+                },
+              }
+            : {}),
+        },
         select: { amount: true },
       }),
       prisma.lease.findMany({
-        where: { status: "ACTIVE" },
+        where: {
+          status: "ACTIVE",
+          ...unitBuildingFilter,
+        },
         select: {
           id: true,
           endDate: true,
@@ -44,7 +80,11 @@ export async function getDashboardData() {
         orderBy: { endDate: "asc" },
       }),
       prisma.booking.findMany({
-        where: { checkIn: { gte: now }, status: "CONFIRMED" },
+        where: {
+          checkIn: { gte: now },
+          status: "CONFIRMED",
+          ...unitBuildingFilter,
+        },
         select: {
           id: true,
           guestName: true,
@@ -59,7 +99,19 @@ export async function getDashboardData() {
         orderBy: { checkIn: "asc" },
         take: 6,
       }),
-      prisma.serviceAccount.count({ where: { active: true } }),
+      prisma.serviceAccount.count({
+        where: {
+          active: true,
+          ...(organizationId
+            ? {
+                OR: [
+                  { building: orgFilter },
+                  { unit: { building: orgFilter } },
+                ],
+              }
+            : {}),
+        },
+      }),
     ]);
 
   const totalUnits = units.length;
@@ -67,9 +119,35 @@ export async function getDashboardData() {
     (u) => u.status === "OCCUPIED" || u.status === "SHORT_TERM",
   ).length;
 
+  const expectedIncomeMXN = rentCharges
+    .filter((c) => c.lease.unit.currency === "MXN")
+    .reduce((sum, c) => sum + toNumber(c.amount), 0);
+  const expectedIncomeUSD = rentCharges
+    .filter((c) => c.lease.unit.currency === "USD")
+    .reduce((sum, c) => sum + toNumber(c.amount), 0);
   const expectedIncome = rentCharges.reduce((sum, c) => sum + toNumber(c.amount), 0);
+
+  const collectedMXN = rentCharges
+    .filter((c) => c.lease.unit.currency === "MXN")
+    .reduce((sum, c) => sum + toNumber(c.paidAmount), 0);
+  const collectedUSD = rentCharges
+    .filter((c) => c.lease.unit.currency === "USD")
+    .reduce((sum, c) => sum + toNumber(c.paidAmount), 0);
   const collected = rentCharges.reduce((sum, c) => sum + toNumber(c.paidAmount), 0);
+
   const overdue = rentCharges.filter((c) => c.status === "OVERDUE");
+  const overdueAmountMXN = overdue
+    .filter((c) => c.lease.unit.currency === "MXN")
+    .reduce(
+      (sum, c) => sum + toNumber(c.amount) - toNumber(c.paidAmount),
+      0,
+    );
+  const overdueAmountUSD = overdue
+    .filter((c) => c.lease.unit.currency === "USD")
+    .reduce(
+      (sum, c) => sum + toNumber(c.amount) - toNumber(c.paidAmount),
+      0,
+    );
   const overdueAmount = overdue.reduce(
     (sum, c) => sum + toNumber(c.amount) - toNumber(c.paidAmount),
     0,
@@ -117,9 +195,15 @@ export async function getDashboardData() {
     availableUnits: units.filter((u) => u.status === "AVAILABLE").length,
     maintenanceUnits: units.filter((u) => u.status === "MAINTENANCE").length,
     expectedIncome,
+    expectedIncomeMXN,
+    expectedIncomeUSD,
     collected,
+    collectedMXN,
+    collectedUSD,
     overdueCount: overdue.length,
     overdueAmount,
+    overdueAmountMXN,
+    overdueAmountUSD,
     pendingCount,
     servicesTotal,
     servicesMissing: Math.max(0, servicesMissing),

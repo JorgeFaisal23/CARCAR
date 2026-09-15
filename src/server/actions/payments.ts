@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUserAction } from "@/lib/auth/session";
 import { periodToDate } from "@/lib/format";
 import { logAction } from "@/server/actions/audit";
+import { saveFile } from "@/lib/storage";
 import type { ActionResult } from "@/server/actions/properties";
 
 const PERIOD = /^\d{4}-\d{2}$/;
@@ -32,6 +33,7 @@ export async function generateMonthlyCharges(
       startDate: { lte: monthEnd },
       endDate: { gte: monthStart },
       rentCharges: { none: { period } },
+      ...(session.organizationId ? { unit: { building: { organizationId: session.organizationId } } } : {}),
     },
     select: { id: true, rentAmount: true, paymentDay: true },
   });
@@ -63,6 +65,7 @@ export async function generateMonthlyCharges(
     "RentCharge",
     undefined,
     `${period}: ${leases.length} cargos`,
+    session.organizationId,
   );
 
   revalidatePath("/pagos");
@@ -86,19 +89,28 @@ export async function markChargePaid(input: {
 }): Promise<ActionResult> {
   const session = await requireUserAction(["OWNER", "ADMIN"]);
 
-  const charge = await prisma.rentCharge.findUnique({
-    where: { id: input.chargeId },
+  const charge = await prisma.rentCharge.findFirst({
+    where: {
+      id: input.chargeId,
+      ...(session.organizationId ? { lease: { unit: { building: { organizationId: session.organizationId } } } } : {}),
+    },
     select: { amount: true, lease: { select: { tenantId: true } } },
   });
   if (!charge) return { error: "No se encontró el cargo." };
 
   const receipt = input.receiptUrl?.trim();
+  let storedReceiptUrl: string | undefined;
   if (receipt) {
     if (receipt.length > MAX_RECEIPT_CHARS) {
       return { error: "El comprobante es demasiado pesado." };
     }
     if (!RECEIPT_PATTERN.test(receipt)) {
       return { error: "El comprobante debe ser una imagen." };
+    }
+    try {
+      storedReceiptUrl = await saveFile(receipt, "receipts", `charge_${input.chargeId}`);
+    } catch {
+      return { error: "No se pudo almacenar el comprobante." };
     }
   }
 
@@ -110,11 +122,18 @@ export async function markChargePaid(input: {
       paidAt: new Date(),
       method: input.method,
       reference: input.reference ?? null,
-      ...(receipt ? { receiptUrl: receipt } : {}),
+      ...(storedReceiptUrl ? { receiptUrl: storedReceiptUrl } : {}),
     },
   });
 
-  await logAction(session.sub, "Registro de pago", "RentCharge", input.chargeId, input.method);
+  await logAction(
+    session.sub,
+    "Registro de pago",
+    "RentCharge",
+    input.chargeId,
+    input.method,
+    session.organizationId,
+  );
 
   revalidatePath("/pagos");
   revalidatePath("/dashboard");
@@ -127,8 +146,11 @@ export async function markChargePaid(input: {
 export async function markChargeUnpaid(chargeId: string): Promise<ActionResult> {
   const session = await requireUserAction(["OWNER", "ADMIN"]);
 
-  const charge = await prisma.rentCharge.findUnique({
-    where: { id: chargeId },
+  const charge = await prisma.rentCharge.findFirst({
+    where: {
+      id: chargeId,
+      ...(session.organizationId ? { lease: { unit: { building: { organizationId: session.organizationId } } } } : {}),
+    },
     select: { dueDate: true, lease: { select: { tenantId: true } } },
   });
   if (!charge) return { error: "No se encontró el cargo." };
@@ -149,7 +171,14 @@ export async function markChargeUnpaid(chargeId: string): Promise<ActionResult> 
     },
   });
 
-  await logAction(session.sub, "Cancelación de pago", "RentCharge", chargeId);
+  await logAction(
+    session.sub,
+    "Cancelación de pago",
+    "RentCharge",
+    chargeId,
+    undefined,
+    session.organizationId,
+  );
 
   revalidatePath("/pagos");
   revalidatePath("/dashboard");

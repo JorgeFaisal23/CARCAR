@@ -29,11 +29,15 @@ export default async function CalendarPage({
 }: {
   searchParams: Promise<{ mes?: string; edificio?: string }>;
 }) {
-  await requireUser(["OWNER", "ADMIN", "VIEWER"]);
+  const session = await requireUser(["OWNER", "ADMIN", "VIEWER"]);
   const { mes, edificio } = await searchParams;
 
   const period = mes && PERIOD_PATTERN.test(mes) ? mes : periodKey(new Date());
-  const data = await getCalendarData(period, edificio || undefined);
+  const data = await getCalendarData(
+    period,
+    edificio || undefined,
+    session.organizationId,
+  );
 
   return (
     <>

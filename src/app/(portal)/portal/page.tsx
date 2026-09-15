@@ -32,7 +32,7 @@ export const metadata: Metadata = { title: "Mi vivienda" };
 
 export default async function PortalHomePage() {
   const session = await requireUser(["TENANT"]);
-  const data = await getPortalData(session.sub);
+  const data = await getPortalData(session.sub, session.organizationId);
 
   const firstName = session.name.split(" ")[0];
 

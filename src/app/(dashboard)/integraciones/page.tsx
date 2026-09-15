@@ -25,6 +25,9 @@ export default async function IntegrationsPage() {
   const editable = canEdit(session.role);
 
   const connections = await prisma.airbnbConnection.findMany({
+    where: session.organizationId
+      ? { unit: { building: { organizationId: session.organizationId } } }
+      : undefined,
     orderBy: { listingName: "asc" },
     select: {
       id: true,

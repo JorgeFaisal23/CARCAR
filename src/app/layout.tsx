@@ -4,6 +4,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { APP } from "@/lib/app";
 import { brandStyleSheet } from "@/lib/brand";
+import { getSession } from "@/lib/auth/session";
 import { getOrganization } from "@/lib/org";
 import "./globals.css";
 
@@ -29,11 +30,11 @@ const sourceSans = Source_Sans_3({
 /**
  * Dos identidades conviven en los metadatos: el título es la marca del
  * arrendador —es lo que el inquilino reconoce en la pestaña— y
- * `applicationName` es CARCAR, que es el software que sirve la página. El
- * nombre del producto no se mete en el título para no competir con la marca.
+ * `applicationName` es el SaaS (RentaCore), que es el software que sirve la página.
  */
 export async function generateMetadata(): Promise<Metadata> {
-  const org = await getOrganization();
+  const session = await getSession();
+  const org = await getOrganization(session?.organizationId);
   return {
     title: {
       default: org.brandName,
@@ -42,8 +43,6 @@ export async function generateMetadata(): Promise<Metadata> {
     description: APP.description,
     applicationName: APP.name,
     generator: APP.name,
-    // El nombre corto del atajo en iOS: ahí sí manda la marca del arrendador,
-    // porque el icono vive en la pantalla de inicio del inquilino.
     appleWebApp: { title: org.brandName },
   };
 }
@@ -51,7 +50,8 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const org = await getOrganization();
+  const session = await getSession();
+  const org = await getOrganization(session?.organizationId);
   const brandCss = brandStyleSheet({
     primaryColor: org.primaryColor,
     radius: org.radius,

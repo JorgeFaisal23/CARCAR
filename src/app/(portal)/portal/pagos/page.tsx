@@ -20,7 +20,7 @@ export const metadata: Metadata = { title: "Mis pagos" };
 
 export default async function PortalPaymentsPage() {
   const session = await requireUser(["TENANT"]);
-  const data = await getPortalData(session.sub);
+  const data = await getPortalData(session.sub, session.organizationId);
 
   const paid = data.charges.filter((c) => c.status === "PAID");
 

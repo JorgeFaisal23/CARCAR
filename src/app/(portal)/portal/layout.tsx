@@ -15,7 +15,7 @@ export default async function PortalLayout({
   children: React.ReactNode;
 }) {
   const session = await requireUser(["TENANT"]);
-  const org = await getOrganization();
+  const org = await getOrganization(session.organizationId);
 
   return (
     <div className="bg-muted/30 flex min-h-svh flex-col">

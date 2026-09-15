@@ -7,7 +7,7 @@ import { toNumber, daysBetween } from "@/lib/format";
  * Todo se filtra por el id de la sesión en el servidor: el portal nunca recibe
  * información de otras unidades ni de otros inquilinos.
  */
-export async function getPortalData(userId: string) {
+export async function getPortalData(userId: string, organizationId?: string | null) {
   const now = new Date();
 
   const [lease, booking, organization] = await Promise.all([
@@ -81,9 +81,14 @@ export async function getPortalData(userId: string) {
         },
       },
     }),
-    prisma.organization.findFirst({
-      select: { brandName: true, contactEmail: true, contactPhone: true },
-    }),
+    organizationId
+      ? prisma.organization.findUnique({
+          where: { id: organizationId },
+          select: { brandName: true, contactEmail: true, contactPhone: true },
+        })
+      : prisma.organization.findFirst({
+          select: { brandName: true, contactEmail: true, contactPhone: true },
+        }),
   ]);
 
   const charges =

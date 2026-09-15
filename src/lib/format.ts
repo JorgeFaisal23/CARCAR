@@ -11,25 +11,41 @@ export function toNumber(value: Decimalish): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-const currencyFormatter = new Intl.NumberFormat("es-MX", {
+const mxnFormatter = new Intl.NumberFormat("es-MX", {
   style: "currency",
   currency: "MXN",
   minimumFractionDigits: 2,
 });
 
-const compactCurrencyFormatter = new Intl.NumberFormat("es-MX", {
+const usdFormatter = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  minimumFractionDigits: 2,
+});
+
+const mxnCompactFormatter = new Intl.NumberFormat("es-MX", {
   style: "currency",
   currency: "MXN",
   maximumFractionDigits: 0,
 });
 
-export function money(value: Decimalish) {
-  return currencyFormatter.format(toNumber(value));
+const usdCompactFormatter = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 0,
+});
+
+export function money(value: Decimalish, currency: string = "MXN") {
+  const num = toNumber(value);
+  return currency === "USD" ? usdFormatter.format(num) : mxnFormatter.format(num);
 }
 
 /** Para tarjetas de KPI, donde los centavos son ruido. */
-export function moneyCompact(value: Decimalish) {
-  return compactCurrencyFormatter.format(toNumber(value));
+export function moneyCompact(value: Decimalish, currency: string = "MXN") {
+  const num = toNumber(value);
+  return currency === "USD"
+    ? usdCompactFormatter.format(num)
+    : mxnCompactFormatter.format(num);
 }
 
 export function longDate(value: Date | string) {

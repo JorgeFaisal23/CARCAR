@@ -16,6 +16,7 @@ export type SessionPayload = {
   email: string;
   name: string;
   role: Role;
+  organizationId?: string | null;
 };
 
 function secretKey() {
@@ -53,6 +54,10 @@ export async function verifySession(
       email: payload.email,
       name: payload.name,
       role: payload.role as Role,
+      organizationId:
+        typeof payload.organizationId === "string"
+          ? payload.organizationId
+          : null,
     };
   } catch {
     // Token expirado, alterado o firmado con otro secreto.

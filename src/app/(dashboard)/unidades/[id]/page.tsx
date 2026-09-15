@@ -29,7 +29,7 @@ import {
   getBuildingsForSelect,
   getUnitDetail,
 } from "@/lib/queries/properties";
-import { requireUser } from "@/lib/auth/session";
+import { getSession, requireUser } from "@/lib/auth/session";
 import { canEdit } from "@/lib/permissions";
 import { SHOW_AIRBNB_INTEGRATION } from "@/lib/features";
 import {
@@ -59,8 +59,9 @@ export async function generateMetadata({
 }: {
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
+  const session = await getSession();
   const { id } = await params;
-  const unit = await getUnitDetail(id);
+  const unit = await getUnitDetail(id, session?.organizationId);
   return { title: unit ? `Unidad ${unit.code}` : "Unidad" };
 }
 
@@ -72,8 +73,8 @@ export default async function UnitPage({
   const session = await requireUser(["OWNER", "ADMIN"]);
   const { id } = await params;
   const [unit, buildings] = await Promise.all([
-    getUnitDetail(id),
-    getBuildingsForSelect(),
+    getUnitDetail(id, session.organizationId),
+    getBuildingsForSelect(session.organizationId),
   ]);
 
   if (!unit) notFound();
@@ -95,7 +96,7 @@ export default async function UnitPage({
 
       <PageHeader
         title={`Unidad ${unit.code}`}
-        description={`${UNIT_TYPE_LABELS[unit.type]} en ${unit.building.name} · ${money(unit.baseRent)}${isShortTerm ? " por noche" : " al mes"}.`}
+        description={`${UNIT_TYPE_LABELS[unit.type]} en ${unit.building.name} · ${money(unit.baseRent, unit.currency)}${isShortTerm ? " por noche" : " al mes"}.`}
         action={
           editable ? (
             <EditUnitDialog
@@ -107,11 +108,14 @@ export default async function UnitPage({
                 name: unit.name,
                 type: unit.type,
                 status: unit.status,
+                currency: unit.currency,
                 floor: unit.floor,
                 bedrooms: unit.bedrooms,
                 bathrooms: unit.bathrooms,
                 sizeM2: unit.sizeM2,
                 baseRent: unit.baseRent,
+                nightlyPrice: unit.nightlyPrice,
+                weeklyPrice: unit.weeklyPrice,
                 description: unit.description,
               }}
             />
@@ -169,11 +173,21 @@ export default async function UnitPage({
 
               <div className="bg-muted/50 rounded-lg p-4">
                 <p className="text-muted-foreground text-xs">
-                  {isShortTerm ? "Tarifa por noche" : "Renta mensual"}
+                  {isShortTerm ? "Tarifa por noche" : "Renta mensual"} ({unit.currency})
                 </p>
                 <p className="mt-0.5 text-2xl font-semibold tabular-nums">
-                  {money(unit.baseRent)}
+                  {money(unit.baseRent, unit.currency)}
                 </p>
+                {unit.nightlyPrice ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Tarifa por noche: <span className="font-medium text-foreground">{money(unit.nightlyPrice, unit.currency)}</span>
+                  </p>
+                ) : null}
+                {unit.weeklyPrice ? (
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Tarifa semanal: <span className="font-medium text-foreground">{money(unit.weeklyPrice, unit.currency)}</span>
+                  </p>
+                ) : null}
               </div>
             </CardContent>
           </Card>
@@ -329,7 +343,7 @@ export default async function UnitPage({
                             {shortDate(booking.checkOut)}
                           </p>
                           <p className="text-muted-foreground text-xs tabular-nums">
-                            {money(booking.totalAmount)}
+                            {money(booking.totalAmount, unit.currency)}
                           </p>
                         </div>
                       </li>
@@ -374,7 +388,7 @@ export default async function UnitPage({
                 <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                   <Detail label="Inicio" value={longDate(lease.startDate)} />
                   <Detail label="Vencimiento" value={longDate(lease.endDate)} />
-                  <Detail label="Renta" value={money(lease.rentAmount)} />
+                  <Detail label="Renta" value={money(lease.rentAmount, unit.currency)} />
                   <Detail
                     label="Día de pago"
                     value={`Día ${lease.paymentDay} de cada mes`}
@@ -466,7 +480,7 @@ export default async function UnitPage({
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="text-sm font-medium tabular-nums">
-                          {money(charge.amount)}
+                          {money(charge.amount, unit.currency)}
                         </span>
                         <StatusBadge tone={CHARGE_STATUS_TONES[charge.status]}>
                           {CHARGE_STATUS_LABELS[charge.status]}

@@ -14,7 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getBuildingDetail } from "@/lib/queries/properties";
-import { requireUser } from "@/lib/auth/session";
+import { getSession, requireUser } from "@/lib/auth/session";
 import { canEdit } from "@/lib/permissions";
 import { money, shortDate } from "@/lib/format";
 import {
@@ -30,8 +30,9 @@ export async function generateMetadata({
 }: {
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
+  const session = await getSession();
   const { id } = await params;
-  const building = await getBuildingDetail(id);
+  const building = await getBuildingDetail(id, session?.organizationId);
   return { title: building?.name ?? "Propiedad" };
 }
 
@@ -42,7 +43,7 @@ export default async function BuildingDetailPage({
 }) {
   const session = await requireUser(["OWNER", "ADMIN"]);
   const { id } = await params;
-  const building = await getBuildingDetail(id);
+  const building = await getBuildingDetail(id, session.organizationId);
 
   if (!building) notFound();
 
@@ -127,7 +128,7 @@ export default async function BuildingDetailPage({
 
                     <div className="flex items-center justify-between gap-4 sm:justify-end">
                       <span className="text-sm font-medium tabular-nums">
-                        {money(unit.baseRent)}
+                        {money(unit.baseRent, unit.currency)}
                         <span className="text-muted-foreground text-xs font-normal">
                           {unit.status === "SHORT_TERM" ? " /noche" : " /mes"}
                         </span>

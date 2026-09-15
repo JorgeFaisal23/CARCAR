@@ -10,8 +10,8 @@ import { BrandForm } from "./brand-form";
 export const metadata: Metadata = { title: "Personalización" };
 
 export default async function BrandPage() {
-  await requireUser(["OWNER"]);
-  const org = await getOrganization();
+  const session = await requireUser(["OWNER"]);
+  const org = await getOrganization(session.organizationId);
 
   return (
     <>

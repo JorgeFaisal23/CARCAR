@@ -36,8 +36,20 @@ export async function createBuilding(
     return { error: parsed.error.issues[0]?.message ?? "Revisa los datos." };
   }
 
-  const building = await prisma.building.create({ data: parsed.data });
-  await logAction(session.sub, "Alta de propiedad", "Building", building.id, building.name);
+  const building = await prisma.building.create({
+    data: {
+      ...parsed.data,
+      organizationId: session.organizationId,
+    },
+  });
+  await logAction(
+    session.sub,
+    "Alta de propiedad",
+    "Building",
+    building.id,
+    building.name,
+    session.organizationId,
+  );
 
   revalidatePath("/edificios");
   revalidatePath("/dashboard");
@@ -52,11 +64,14 @@ const unitSchema = z.object({
   name: z.string().trim().optional(),
   type: z.enum(["ROOM", "APARTMENT", "STUDIO", "COMMERCIAL"]),
   status: z.enum(["AVAILABLE", "OCCUPIED", "SHORT_TERM", "MAINTENANCE"]),
+  currency: z.enum(["MXN", "USD"]).default("MXN"),
   floor: z.coerce.number().int().min(0).max(200).optional(),
   bedrooms: z.coerce.number().int().min(0).max(20),
   bathrooms: z.coerce.number().int().min(0).max(20),
   sizeM2: z.coerce.number().min(0).max(10000).optional(),
   baseRent: z.coerce.number().min(0, "La renta no puede ser negativa."),
+  nightlyPrice: z.coerce.number().min(0).optional(),
+  weeklyPrice: z.coerce.number().min(0).optional(),
   description: z.string().trim().optional(),
 });
 
@@ -67,11 +82,14 @@ function readUnitForm(formData: FormData) {
     name: formData.get("name") || undefined,
     type: formData.get("type"),
     status: formData.get("status"),
+    currency: formData.get("currency") || "MXN",
     floor: formData.get("floor") || undefined,
     bedrooms: formData.get("bedrooms") || 1,
     bathrooms: formData.get("bathrooms") || 1,
     sizeM2: formData.get("sizeM2") || undefined,
     baseRent: formData.get("baseRent"),
+    nightlyPrice: formData.get("nightlyPrice") || undefined,
+    weeklyPrice: formData.get("weeklyPrice") || undefined,
     description: formData.get("description") || undefined,
   };
 }
@@ -87,6 +105,19 @@ export async function createUnit(
     return { error: parsed.error.issues[0]?.message ?? "Revisa los datos." };
   }
 
+  if (session.organizationId) {
+    const building = await prisma.building.findFirst({
+      where: {
+        id: parsed.data.buildingId,
+        organizationId: session.organizationId,
+      },
+      select: { id: true },
+    });
+    if (!building) {
+      return { error: "No tienes permiso para agregar unidades a esta propiedad." };
+    }
+  }
+
   // El identificador debe ser único dentro del edificio: dos "101" en el mismo
   // inmueble harían imposible saber de cuál se habla.
   const duplicate = await prisma.unit.findFirst({
@@ -100,7 +131,14 @@ export async function createUnit(
   }
 
   const unit = await prisma.unit.create({ data: parsed.data });
-  await logAction(session.sub, "Alta de unidad", "Unit", unit.id, unit.code);
+  await logAction(
+    session.sub,
+    "Alta de unidad",
+    "Unit",
+    unit.id,
+    unit.code,
+    session.organizationId,
+  );
 
   revalidatePath("/edificios");
   revalidatePath(`/edificios/${parsed.data.buildingId}`);
@@ -121,6 +159,19 @@ export async function updateUnit(
     return { error: parsed.error.issues[0]?.message ?? "Revisa los datos." };
   }
 
+  if (session.organizationId) {
+    const existingUnit = await prisma.unit.findFirst({
+      where: {
+        id: unitId,
+        building: { organizationId: session.organizationId },
+      },
+      select: { id: true },
+    });
+    if (!existingUnit) {
+      return { error: "No tienes permiso para editar esta unidad." };
+    }
+  }
+
   const duplicate = await prisma.unit.findFirst({
     where: {
       buildingId: parsed.data.buildingId,
@@ -136,7 +187,14 @@ export async function updateUnit(
   }
 
   await prisma.unit.update({ where: { id: unitId }, data: parsed.data });
-  await logAction(session.sub, "Edición de unidad", "Unit", unitId, parsed.data.code);
+  await logAction(
+    session.sub,
+    "Edición de unidad",
+    "Unit",
+    unitId,
+    parsed.data.code,
+    session.organizationId,
+  );
 
   revalidatePath(`/unidades/${unitId}`);
   revalidatePath(`/edificios/${parsed.data.buildingId}`);
@@ -161,6 +219,22 @@ export async function updateServiceAccount(
   const accountId = String(formData.get("accountId") ?? "");
   if (!accountId) return { error: "No se identificó el servicio." };
 
+  if (session.organizationId) {
+    const existing = await prisma.serviceAccount.findFirst({
+      where: {
+        id: accountId,
+        OR: [
+          { building: { organizationId: session.organizationId } },
+          { unit: { building: { organizationId: session.organizationId } } },
+        ],
+      },
+      select: { id: true },
+    });
+    if (!existing) {
+      return { error: "No tienes permiso para editar este servicio." };
+    }
+  }
+
   const parsed = serviceAccountSchema.safeParse({
     includedInRent: formData.get("includedInRent") === "on",
     providerName: formData.get("providerName") || undefined,
@@ -181,7 +255,14 @@ export async function updateServiceAccount(
     select: { unitId: true, buildingId: true, type: true },
   });
 
-  await logAction(session.sub, "Edición de servicio", "ServiceAccount", accountId, account.type);
+  await logAction(
+    session.sub,
+    "Edición de servicio",
+    "ServiceAccount",
+    accountId,
+    account.type,
+    session.organizationId,
+  );
 
   if (account.unitId) revalidatePath(`/unidades/${account.unitId}`);
   if (account.buildingId) revalidatePath(`/edificios/${account.buildingId}`);
@@ -216,6 +297,19 @@ export async function createUnitServiceAccount(
     return { error: "Elige el tipo de servicio." };
   }
 
+  if (session.organizationId) {
+    const unit = await prisma.unit.findFirst({
+      where: {
+        id: parsed.data.unitId,
+        building: { organizationId: session.organizationId },
+      },
+      select: { id: true },
+    });
+    if (!unit) {
+      return { error: "No tienes permiso para agregar servicios a esta unidad." };
+    }
+  }
+
   const exists = await prisma.serviceAccount.findFirst({
     where: { unitId: parsed.data.unitId, type: parsed.data.type },
     select: { id: true },
@@ -235,7 +329,14 @@ export async function createUnitServiceAccount(
     },
   });
 
-  await logAction(session.sub, "Alta de servicio", "ServiceAccount", parsed.data.unitId, parsed.data.type);
+  await logAction(
+    session.sub,
+    "Alta de servicio",
+    "ServiceAccount",
+    parsed.data.unitId,
+    parsed.data.type,
+    session.organizationId,
+  );
 
   revalidatePath(`/unidades/${parsed.data.unitId}`);
   revalidatePath("/servicios");

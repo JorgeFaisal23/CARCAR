@@ -61,10 +61,10 @@ const AUTOMATIONS = [
 ];
 
 export default async function AutomationsPage() {
-  await requireUser(["OWNER", "ADMIN"]);
+  const session = await requireUser(["OWNER", "ADMIN"]);
 
   const { pendingCharges, expiringLeases, daysAhead } =
-    await getAutomationCounts();
+    await getAutomationCounts(session.organizationId);
 
   return (
     <>

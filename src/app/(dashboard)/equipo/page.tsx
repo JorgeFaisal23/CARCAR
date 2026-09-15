@@ -20,11 +20,16 @@ import { ROLE_DESCRIPTIONS, ROLE_LABELS } from "@/lib/labels";
 export const metadata: Metadata = { title: "Equipo" };
 
 export default async function TeamPage() {
-  await requireUser(["OWNER", "ADMIN"]);
+  const session = await requireUser(["OWNER", "ADMIN"]);
 
   const [staff, logs] = await Promise.all([
     prisma.user.findMany({
-      where: { role: { in: ["OWNER", "ADMIN", "VIEWER"] } },
+      where: {
+        role: { in: ["OWNER", "ADMIN", "VIEWER"] },
+        ...(session.organizationId
+          ? { organizationId: session.organizationId }
+          : {}),
+      },
       orderBy: { createdAt: "asc" },
       select: {
         id: true,
@@ -36,6 +41,9 @@ export default async function TeamPage() {
       },
     }),
     prisma.auditLog.findMany({
+      where: session.organizationId
+        ? { organizationId: session.organizationId }
+        : undefined,
       orderBy: { createdAt: "desc" },
       take: 12,
       select: {

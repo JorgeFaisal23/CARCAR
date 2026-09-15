@@ -30,20 +30,30 @@ function daysInMonth(year: number, month: number) {
   return new Date(year, month + 1, 0).getDate();
 }
 
-export async function getCalendarData(period: string, buildingId?: string) {
+export async function getCalendarData(
+  period: string,
+  buildingId?: string,
+  organizationId?: string | null,
+) {
   const monthStart = periodToDate(period);
   const year = monthStart.getFullYear();
   const month = monthStart.getMonth();
   const totalDays = daysInMonth(year, month);
   const monthEnd = new Date(year, month, totalDays, 23, 59, 59);
 
+  const orgFilter = organizationId ? { organizationId } : undefined;
+
   const [buildings, units, leases, bookings] = await Promise.all([
     prisma.building.findMany({
+      where: orgFilter,
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
     prisma.unit.findMany({
-      where: buildingId ? { buildingId } : undefined,
+      where: {
+        ...(buildingId ? { buildingId } : {}),
+        ...(organizationId ? { building: orgFilter } : {}),
+      },
       orderBy: [{ building: { name: "asc" } }, { code: "asc" }],
       select: {
         id: true,
@@ -58,6 +68,7 @@ export async function getCalendarData(period: string, buildingId?: string) {
         startDate: { lte: monthEnd },
         endDate: { gte: monthStart },
         ...(buildingId ? { unit: { buildingId } } : {}),
+        ...(organizationId ? { unit: { building: orgFilter } } : {}),
       },
       select: {
         id: true,
@@ -74,6 +85,7 @@ export async function getCalendarData(period: string, buildingId?: string) {
         checkIn: { lte: monthEnd },
         checkOut: { gte: monthStart },
         ...(buildingId ? { unit: { buildingId } } : {}),
+        ...(organizationId ? { unit: { building: orgFilter } } : {}),
       },
       select: {
         id: true,

@@ -32,7 +32,10 @@ export const metadata: Metadata = { title: "Inicio" };
 
 export default async function DashboardPage() {
   const session = await requireUser(["OWNER", "ADMIN", "VIEWER"]);
-  const [data, org] = await Promise.all([getDashboardData(), getOrganization()]);
+  const [data, org] = await Promise.all([
+    getDashboardData(session.organizationId),
+    getOrganization(session.organizationId),
+  ]);
   const editable = canEdit(session.role);
 
   const firstName = session.name.split(" ")[0];
@@ -62,8 +65,16 @@ export default async function DashboardPage() {
         />
         <StatCard
           label="Renta cobrada este mes"
-          value={moneyCompact(data.collected)}
-          hint={`De ${moneyCompact(data.expectedIncome)} esperados`}
+          value={
+            data.expectedIncomeUSD > 0
+              ? `${moneyCompact(data.collectedMXN, "MXN")} + ${moneyCompact(data.collectedUSD, "USD")}`
+              : moneyCompact(data.collectedMXN, "MXN")
+          }
+          hint={
+            data.expectedIncomeUSD > 0
+              ? `De ${moneyCompact(data.expectedIncomeMXN, "MXN")} + ${moneyCompact(data.expectedIncomeUSD, "USD")} esperados`
+              : `De ${moneyCompact(data.expectedIncomeMXN, "MXN")} esperados`
+          }
           icon={Banknote}
         />
         <StatCard
@@ -82,7 +93,11 @@ export default async function DashboardPage() {
           hint={
             data.overdueCount === 0
               ? "Todos los inquilinos al corriente"
-              : `${money(data.overdueAmount)} por recuperar`
+              : data.overdueAmountUSD > 0 && data.overdueAmountMXN > 0
+                ? `${money(data.overdueAmountMXN, "MXN")} + ${money(data.overdueAmountUSD, "USD")} por recuperar`
+                : data.overdueAmountUSD > 0
+                  ? `${money(data.overdueAmountUSD, "USD")} por recuperar`
+                  : `${money(data.overdueAmountMXN, "MXN")} por recuperar`
           }
           icon={AlertTriangle}
           tone={data.overdueCount > 0 ? "danger" : "default"}
@@ -112,7 +127,13 @@ export default async function DashboardPage() {
                   <AttentionRow
                     tone="danger"
                     title={`${data.overdueCount} ${data.overdueCount === 1 ? "cobro vencido" : "cobros vencidos"}`}
-                    detail={`${money(data.overdueAmount)} sin liquidar.`}
+                    detail={
+                      data.overdueAmountUSD > 0 && data.overdueAmountMXN > 0
+                        ? `${money(data.overdueAmountMXN, "MXN")} + ${money(data.overdueAmountUSD, "USD")} sin liquidar.`
+                        : data.overdueAmountUSD > 0
+                          ? `${money(data.overdueAmountUSD, "USD")} sin liquidar.`
+                          : `${money(data.overdueAmountMXN, "MXN")} sin liquidar.`
+                    }
                     href="/pagos"
                     cta="Ver cobros"
                   />

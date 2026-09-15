@@ -61,7 +61,7 @@ const FEATURES: { group: string; items: Feature[] }[] = [
 
 export default async function PremiumPage() {
   const session = await requireUser(["OWNER", "ADMIN"]);
-  const org = await getOrganization();
+  const org = await getOrganization(session.organizationId);
   const isPremium = org.plan === "PREMIUM";
 
   return (

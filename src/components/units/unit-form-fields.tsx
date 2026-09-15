@@ -12,11 +12,14 @@ export type UnitDefaults = {
   name?: string | null;
   type?: UnitType;
   status?: UnitStatus;
+  currency?: "MXN" | "USD";
   floor?: number | null;
   bedrooms?: number;
   bathrooms?: number;
   sizeM2?: number | null;
   baseRent?: number;
+  nightlyPrice?: number | null;
+  weeklyPrice?: number | null;
   description?: string | null;
 };
 
@@ -126,24 +129,73 @@ export function UnitFormFields({
         </Field>
       </div>
 
-      <Field
-        label="Renta"
-        htmlFor="baseRent"
-        required
-        hint="Mensual para arrendamiento; por noche si es renta corta."
-      >
-        <Input
-          id="baseRent"
-          name="baseRent"
-          type="number"
-          min={0}
-          step={50}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Moneda" htmlFor="currency" required hint="Moneda de cobro">
+          <NativeSelect
+            id="currency"
+            name="currency"
+            defaultValue={defaults.currency ?? "MXN"}
+          >
+            <option value="MXN">MXN ($ Pesos Mexicanos)</option>
+            <option value="USD">USD ($ Dólares Americanos)</option>
+          </NativeSelect>
+        </Field>
+
+        <Field
+          label="Renta mensual"
+          htmlFor="baseRent"
           required
-          defaultValue={defaults.baseRent}
-          placeholder="6500"
-          className="tabular-nums"
-        />
-      </Field>
+          hint="Monto base mensual de arrendamiento."
+        >
+          <Input
+            id="baseRent"
+            name="baseRent"
+            type="number"
+            min={0}
+            step={50}
+            required
+            defaultValue={defaults.baseRent}
+            placeholder="6500"
+            className="tabular-nums"
+          />
+        </Field>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field
+          label="Tarifa por noche (opcional)"
+          htmlFor="nightlyPrice"
+          hint="Para estancias cortas o Airbnb."
+        >
+          <Input
+            id="nightlyPrice"
+            name="nightlyPrice"
+            type="number"
+            min={0}
+            step={10}
+            defaultValue={defaults.nightlyPrice ?? ""}
+            placeholder="850"
+            className="tabular-nums"
+          />
+        </Field>
+
+        <Field
+          label="Tarifa semanal (opcional)"
+          htmlFor="weeklyPrice"
+          hint="Para estancias semanales."
+        >
+          <Input
+            id="weeklyPrice"
+            name="weeklyPrice"
+            type="number"
+            min={0}
+            step={50}
+            defaultValue={defaults.weeklyPrice ?? ""}
+            placeholder="5000"
+            className="tabular-nums"
+          />
+        </Field>
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-4">
         <Field label="Piso" htmlFor="floor">

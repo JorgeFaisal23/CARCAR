@@ -85,6 +85,19 @@ export async function createTenant(
       return { error: "El vencimiento debe ser posterior al inicio del contrato." };
     }
 
+    if (session.organizationId) {
+      const unitBelongs = await prisma.unit.findFirst({
+        where: {
+          id: unitId,
+          building: { organizationId: session.organizationId },
+        },
+        select: { id: true },
+      });
+      if (!unitBelongs) {
+        return { error: "La unidad seleccionada no pertenece a tu organización." };
+      }
+    }
+
     // Una unidad no puede tener dos contratos vigentes a la vez.
     const busy = await prisma.lease.findFirst({
       where: { unitId, status: "ACTIVE" },
@@ -109,6 +122,7 @@ export async function createTenant(
       documentId: parsed.data.documentId,
       notes: parsed.data.notes,
       role: "TENANT",
+      organizationId: session.organizationId ?? null,
       passwordHash,
     },
   });
@@ -133,7 +147,14 @@ export async function createTenant(
     });
   }
 
-  await logAction(session.sub, "Alta de inquilino", "User", tenant.id, tenant.name);
+  await logAction(
+    session.sub,
+    "Alta de inquilino",
+    "User",
+    tenant.id,
+    tenant.name,
+    session.organizationId,
+  );
 
   revalidatePath("/inquilinos");
   revalidatePath("/edificios");
@@ -150,6 +171,19 @@ export async function updateTenant(
   const session = await requireUserAction(["OWNER", "ADMIN"]);
   const tenantId = String(formData.get("tenantId") ?? "");
   if (!tenantId) return { error: "No se identificó al inquilino." };
+
+  if (session.organizationId) {
+    const allowed = await prisma.user.findFirst({
+      where: {
+        id: tenantId,
+        organizationId: session.organizationId,
+      },
+      select: { id: true },
+    });
+    if (!allowed) {
+      return { error: "Inquilino no encontrado o sin permisos." };
+    }
+  }
 
   const parsed = updateSchema.safeParse({
     name: formData.get("name"),
@@ -180,7 +214,14 @@ export async function updateTenant(
     },
   });
 
-  await logAction(session.sub, "Edición de inquilino", "User", tenantId, parsed.data.name);
+  await logAction(
+    session.sub,
+    "Edición de inquilino",
+    "User",
+    tenantId,
+    parsed.data.name,
+    session.organizationId,
+  );
 
   revalidatePath(`/inquilinos/${tenantId}`);
   revalidatePath("/inquilinos");

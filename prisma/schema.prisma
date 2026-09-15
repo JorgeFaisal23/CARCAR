@@ -40,6 +40,10 @@ model Organization {
   contactPhone       String?
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
+
+  buildings          Building[]
+  users              User[]
+  auditLogs          AuditLog[]
 }
 
 // ---------------------------------------------------------------- Usuarios
@@ -52,23 +56,26 @@ enum Role {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  name         String
-  phone        String?
-  documentId   String? // identificación oficial
-  role         Role     @default(TENANT)
-  active       Boolean  @default(true)
-  notes        String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id             String        @id @default(cuid())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String        @unique
+  passwordHash   String
+  name           String
+  phone          String?
+  documentId     String? // identificación oficial
+  role           Role          @default(TENANT)
+  active         Boolean       @default(true)
+  notes          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   leases    Lease[]
   bookings  Booking[]
   auditLogs AuditLog[]
 
   @@index([role])
+  @@index([organizationId])
 }
 
 // ---------------------------------------------------------------- Propiedades
@@ -88,34 +95,46 @@ enum UnitStatus {
 }
 
 model Building {
-  id        String   @id @default(cuid())
-  name      String
-  address   String
-  city      String?
-  notes     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String        @id @default(cuid())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  address        String
+  city           String?
+  notes          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   units           Unit[]
   serviceAccounts ServiceAccount[]
+
+  @@index([organizationId])
+}
+
+enum Currency {
+  MXN
+  USD
 }
 
 model Unit {
-  id          String     @id @default(cuid())
-  buildingId  String
-  building    Building   @relation(fields: [buildingId], references: [id], onDelete: Cascade)
-  code        String // "101", "A-2"
-  name        String?
-  type        UnitType   @default(ROOM)
-  status      UnitStatus @default(AVAILABLE)
-  floor       Int?
-  bedrooms    Int        @default(1)
-  bathrooms   Int        @default(1)
-  sizeM2      Float?
-  baseRent    Decimal    @db.Decimal(12, 2)
-  description String?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  id           String     @id @default(cuid())
+  buildingId   String
+  building     Building   @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  code         String // "101", "A-2"
+  name         String?
+  type         UnitType   @default(ROOM)
+  status       UnitStatus @default(AVAILABLE)
+  currency     Currency   @default(MXN)
+  floor        Int?
+  bedrooms     Int        @default(1)
+  bathrooms    Int        @default(1)
+  sizeM2       Float?
+  baseRent     Decimal    @db.Decimal(12, 2)
+  nightlyPrice Decimal?   @db.Decimal(12, 2)
+  weeklyPrice  Decimal?   @db.Decimal(12, 2)
+  description  String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 
   leases           Lease[]
   bookings         Booking[]
@@ -315,14 +334,17 @@ model AirbnbConnection {
 // ---------------------------------------------------------------- Bitácora
 
 model AuditLog {
-  id        String   @id @default(cuid())
-  userId    String?
-  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  action    String
-  entity    String
-  entityId  String?
-  detail    String?
-  createdAt DateTime @default(now())
+  id             String        @id @default(cuid())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String?
+  user           User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action         String
+  entity         String
+  entityId       String?
+  detail         String?
+  createdAt      DateTime      @default(now())
 
   @@index([createdAt])
+  @@index([organizationId])
 }

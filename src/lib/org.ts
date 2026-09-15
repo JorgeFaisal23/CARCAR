@@ -23,29 +23,30 @@ const ORGANIZACION_POR_DEFECTO = {
 };
 
 /**
- * La organización es una fila única: guarda el plan (que controla el muro de
- * pago) y la identidad de marca. `cache` evita repetir la consulta cuando
- * varios componentes del mismo render la necesitan.
+ * Resuelve la organización activa. Si se proporciona `orgId`, busca dicha organización;
+ * de lo contrario o si no existe, toma la primera disponible o los valores por defecto.
+ * `cache` evita repetir la consulta dentro del mismo ciclo de render de RSC.
  */
-export const getOrganization = cache(async () => {
+export const getOrganization = cache(async (orgId?: string | null) => {
   try {
+    if (orgId) {
+      const org = await prisma.organization.findUnique({
+        where: { id: orgId },
+      });
+      if (org) return org;
+    }
+
     const org = await prisma.organization.findFirst({
       orderBy: { createdAt: "asc" },
     });
     return org ?? ORGANIZACION_POR_DEFECTO;
   } catch (error) {
-    // El layout raíz lee la marca de aquí, así que la 404 —que Next
-    // prerenderiza durante el build— también depende de esta consulta. Si la
-    // base no responde (Neon dormida, build sin acceso a la red) servimos la
-    // marca por defecto: preferimos una página sin personalizar a un build
-    // roto. Las páginas con datos reales siguen fallando por su cuenta, que
-    // es lo correcto: ahí no hay nada sensato que mostrar.
     console.error("No se pudo leer la organización:", error);
     return ORGANIZACION_POR_DEFECTO;
   }
 });
 
-export async function isPremium() {
-  const org = await getOrganization();
+export async function isPremium(orgId?: string | null) {
+  const org = await getOrganization(orgId);
   return org.plan === "PREMIUM";
 }

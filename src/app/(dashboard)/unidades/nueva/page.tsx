@@ -14,9 +14,9 @@ export default async function NewUnitPage({
 }: {
   searchParams: Promise<{ edificio?: string }>;
 }) {
-  await requireUser(["OWNER", "ADMIN"]);
+  const session = await requireUser(["OWNER", "ADMIN"]);
   const { edificio } = await searchParams;
-  const buildings = await getBuildingsForSelect();
+  const buildings = await getBuildingsForSelect(session.organizationId);
 
   const backHref = edificio ? `/edificios/${edificio}` : "/edificios";
 

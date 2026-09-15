@@ -1,23 +1,17 @@
-# CARCAR
+# RentaCore (CARCAR Beta Operativa)
 
-**CARCAR** es la plataforma de gestión de rentas: edificios con múltiples
-unidades, control de servicios, cobros de renta, calendario unificado con
-reservas de corta estancia y portal para inquilinos.
+**RentaCore** es la plataforma SaaS multi-empresa para administración de propiedades inmobiliarias, gestión de arrendamientos tradicionales y vacacionales, control y prorrateo de servicios, cobranza y portal de autoservicio para inquilinos.
 
-## Dos identidades
+## Claridad de Identidades (North Star)
 
-No hay que confundirlas:
+No deben confundirse el producto y el cliente:
 
-| | Qué es | Dónde vive | Quién la cambia |
+| Entidad | Qué es | Dónde reside | Quién la administra |
 |---|---|---|---|
-| **CARCAR** | El producto | `src/lib/app.ts` | Nadie desde la app: es fija |
-| **Marca del arrendador** | Nombre, logo, color y tipografía de quien renta | Tabla `Organization` | El dueño, en `/configuracion/marca` |
+| **RentaCore** | El producto SaaS Multi-Tenant | Código fuente (`src/lib/app.ts`) | Equipo tecnológico (fija) |
+| **CARCAR** | Cliente fundador / piloto de validación | Tabla `Organization` (`brandName = "CARCAR"`) | El cliente desde `/configuracion/marca` |
 
-La marca del arrendador viste la interfaz completa (panel, portal y acceso);
-CARCAR aparece solo en los márgenes: pie del menú lateral, pie del portal,
-pantalla de acceso, página de planes, favicon y metadatos. El distintivo del
-producto usa su propio color (`APP.color`) para que no cambie con el color de
-marca que elija cada cliente.
+La marca del cliente arrendador (CARCAR o cualquier futuro tenant) viste toda la interfaz operativa (panel, portal y acceso con su propio logo y colores). El producto SaaS aparece únicamente en los márgenes técnicos (pie de página, metadatos y favicon por defecto).
 
 ## Cuentas de demostración
 
@@ -55,6 +49,17 @@ npm run db:reset    # borra todo y vuelve a sembrar
 npm run db:studio   # explorador de la base de datos
 npm run build       # build de producción
 ```
+
+## Documentación del Sistema
+
+Toda la documentación técnica, comercial, de clientes y guías de infraestructura se encuentra centralizada y organizada en la carpeta [`docs/`](docs/README.md):
+
+- [💼 **Negocio y Modelo SaaS**](docs/negocio/modelo-saas-y-sociedad.md): Propuestas comerciales, tiers de suscripción y acuerdos de socios.
+- [🏢 **Clientes y Portafolios**](docs/clientes/carcar/resumen-portafolio.md): Inventario de 121 unidades de CARCAR (104 MXN + 17 USD) y scripts de importación.
+- [🏛️ **Arquitectura y "North Star"**](docs/arquitectura/north-star.md): Principios rectores del SaaS, modelo de datos relacional y stack tecnológico.
+- [🚀 **Despliegue y Seguridad en VPS**](docs/despliegue/vps-deployment-guide.md): Docker Compose, Caddy TLS 1.3, Cloudflare WAF y hardening de servidores.
+
+Consulta el [**Índice General de Documentación**](docs/README.md) para ver el mapa completo de archivos.
 
 ## Cómo está organizado
 

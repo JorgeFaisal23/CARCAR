@@ -33,7 +33,7 @@ export default async function ServicesPage({
   const periods = recentPeriods(12);
   const period = mes && periods.includes(mes) ? mes : periodKey(new Date());
 
-  const board = await getServicesBoard(period);
+  const board = await getServicesBoard(period, session.organizationId);
   const editable = canEdit(session.role);
 
   const difference = board.grandTotal - board.previousTotal;

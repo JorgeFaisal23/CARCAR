@@ -30,7 +30,16 @@ export async function login(
   }
 
   const { email, password, redirigir } = parsed.data;
-  const user = await prisma.user.findUnique({ where: { email } });
+  let user;
+  try {
+    user = await prisma.user.findUnique({ where: { email } });
+  } catch (err) {
+    console.error("Error al consultar la base de datos en login:", err);
+    return {
+      error:
+        "No se pudo conectar a la base de datos. Verifica que la variable DATABASE_URL esté configurada en el archivo .env.",
+    };
+  }
 
   // Mismo mensaje para usuario inexistente y contraseña incorrecta: no vale la
   // pena revelar cuáles correos existen.
@@ -38,11 +47,27 @@ export async function login(
     return { error: "Correo o contraseña incorrectos." };
   }
 
+  let organizationId = user.organizationId;
+  if (!organizationId) {
+    const defaultOrg = await prisma.organization.findFirst({
+      orderBy: { createdAt: "asc" },
+      select: { id: true },
+    });
+    if (defaultOrg) {
+      organizationId = defaultOrg.id;
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { organizationId: defaultOrg.id },
+      });
+    }
+  }
+
   await createSession({
     sub: user.id,
     email: user.email,
     name: user.name,
     role: user.role,
+    organizationId,
   });
 
   const destination =

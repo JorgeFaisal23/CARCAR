@@ -3,7 +3,7 @@ import { Building2, CalendarRange, Receipt } from "lucide-react";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { AppSignature } from "@/components/shared/app-signature";
 import { AppWordmark } from "@/components/shared/app-mark";
-import { APP_VERSION_LABEL } from "@/lib/app";
+import { APP, APP_VERSION_LABEL } from "@/lib/app";
 import { getOrganization } from "@/lib/org";
 import { LoginForm } from "./login-form";
 
@@ -87,7 +87,7 @@ export default async function LoginPage({
             {APP_VERSION_LABEL}
           </p>
           <p className="text-primary-foreground/60 text-xs">
-            Versión de demostración. Los datos mostrados son ficticios.
+            {APP.tagline}
           </p>
         </div>
       </section>
@@ -107,7 +107,10 @@ export default async function LoginPage({
             </p>
           </div>
 
-          <LoginForm redirigir={redirigir} />
+          <LoginForm
+            redirigir={redirigir}
+            showDemoAccounts={false}
+          />
 
           {/* En celular la columna de marca no se ve; aquí queda la única
               mención al producto. */}

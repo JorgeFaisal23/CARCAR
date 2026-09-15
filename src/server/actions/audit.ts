@@ -14,10 +14,27 @@ export async function logAction(
   entity: string,
   entityId?: string,
   detail?: string,
+  organizationId?: string | null,
 ) {
   try {
+    let orgId = organizationId;
+    if (!orgId && userId) {
+      const u = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { organizationId: true },
+      });
+      orgId = u?.organizationId ?? null;
+    }
+
     await prisma.auditLog.create({
-      data: { userId, action, entity, entityId, detail },
+      data: {
+        userId,
+        organizationId: orgId,
+        action,
+        entity,
+        entityId,
+        detail,
+      },
     });
   } catch (error) {
     console.error("No se pudo registrar en la bitácora:", error);

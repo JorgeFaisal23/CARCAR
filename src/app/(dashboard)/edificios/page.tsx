@@ -15,7 +15,7 @@ export const metadata: Metadata = { title: "Propiedades" };
 
 export default async function BuildingsPage() {
   const session = await requireUser(["OWNER", "ADMIN"]);
-  const buildings = await getBuildingsOverview();
+  const buildings = await getBuildingsOverview(session.organizationId);
   const editable = canEdit(session.role);
 
   const totalUnits = buildings.reduce((sum, b) => sum + b.totalUnits, 0);
@@ -75,7 +75,11 @@ export default async function BuildingsPage() {
                       Renta mensual
                     </dt>
                     <dd className="font-medium tabular-nums">
-                      {moneyCompact(building.monthlyRent)}
+                      {building.monthlyRentUSD > 0 && building.monthlyRentMXN > 0
+                        ? `${moneyCompact(building.monthlyRentMXN, "MXN")} + ${moneyCompact(building.monthlyRentUSD, "USD")}`
+                        : building.monthlyRentUSD > 0
+                          ? moneyCompact(building.monthlyRentUSD, "USD")
+                          : moneyCompact(building.monthlyRentMXN, "MXN")}
                     </dd>
                   </div>
                   <div>

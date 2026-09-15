@@ -23,7 +23,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { requireUser } from "@/lib/auth/session";
+import { getSession, requireUser } from "@/lib/auth/session";
 import { canEdit } from "@/lib/permissions";
 import { getTenantDetail } from "@/lib/queries/tenants";
 import {
@@ -46,8 +46,9 @@ export async function generateMetadata({
 }: {
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
+  const session = await getSession();
   const { id } = await params;
-  const tenant = await getTenantDetail(id);
+  const tenant = await getTenantDetail(id, session?.organizationId);
   return { title: tenant?.name ?? "Inquilino" };
 }
 
@@ -58,7 +59,7 @@ export default async function TenantDetailPage({
 }) {
   const session = await requireUser(["OWNER", "ADMIN"]);
   const { id } = await params;
-  const tenant = await getTenantDetail(id);
+  const tenant = await getTenantDetail(id, session.organizationId);
 
   if (!tenant) notFound();
 

@@ -33,7 +33,11 @@ import { BrandLogo } from "@/components/shared/brand-logo";
 import { AppSignature } from "@/components/shared/app-signature";
 import { PremiumBadge } from "@/components/premium/premium-badge";
 import { canAccessPath } from "@/lib/permissions";
-import { SHOW_AIRBNB_INTEGRATION } from "@/lib/features";
+import {
+  SHOW_AIRBNB_INTEGRATION,
+  SHOW_AUTOMATIONS,
+  SHOW_CONTRACTS,
+} from "@/lib/features";
 import type { Role } from "@/lib/auth/jwt";
 import { UserMenu } from "./user-menu";
 
@@ -63,8 +67,20 @@ const MAIN_NAV: NavItem[] = [
 
 const PREMIUM_NAV: NavItem[] = [
   { href: "/reportes", label: "Reportes", icon: BarChart3, premium: true },
-  { href: "/automatizaciones", label: "Automatizaciones", icon: Workflow, premium: true },
-  { href: "/contratos", label: "Contratos", icon: FileSignature, premium: true },
+  {
+    href: "/automatizaciones",
+    label: "Automatizaciones",
+    icon: Workflow,
+    premium: true,
+    enabled: SHOW_AUTOMATIONS,
+  },
+  {
+    href: "/contratos",
+    label: "Contratos",
+    icon: FileSignature,
+    premium: true,
+    enabled: SHOW_CONTRACTS,
+  },
   { href: "/equipo", label: "Equipo", icon: Users2, premium: true },
 ];
 
@@ -131,7 +147,8 @@ export function AppSidebar({
             <SidebarGroupLabel>Premium</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {PREMIUM_NAV.map((item) => (
+                {PREMIUM_NAV.filter((item) => item.enabled !== false).map(
+                  (item) => (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
                       isActive={isActive(item.href)}

@@ -18,11 +18,14 @@ export async function syncAirbnbConnection(
 ): Promise<ActionResult & { bookings?: number }> {
   const session = await requireUserAction(["OWNER", "ADMIN"]);
 
-  const connection = await prisma.airbnbConnection.findUnique({
-    where: { id: connectionId },
+  const connection = await prisma.airbnbConnection.findFirst({
+    where: {
+      id: connectionId,
+      ...(session.organizationId ? { unit: { building: { organizationId: session.organizationId } } } : {}),
+    },
     select: { id: true, unitId: true, listingName: true },
   });
-  if (!connection) return { error: "No se encontró la conexión." };
+  if (!connection) return { error: "No se encontró la conexión o no tienes permisos." };
 
   const [, bookings] = await Promise.all([
     prisma.airbnbConnection.update({
@@ -40,6 +43,7 @@ export async function syncAirbnbConnection(
     "AirbnbConnection",
     connectionId,
     connection.listingName,
+    session.organizationId,
   );
 
   revalidatePath("/integraciones");
@@ -54,7 +58,10 @@ export async function syncAllConnections(): Promise<
   const session = await requireUserAction(["OWNER", "ADMIN"]);
 
   const result = await prisma.airbnbConnection.updateMany({
-    where: { status: { not: "DISCONNECTED" } },
+    where: {
+      status: { not: "DISCONNECTED" },
+      ...(session.organizationId ? { unit: { building: { organizationId: session.organizationId } } } : {}),
+    },
     data: { lastSyncedAt: new Date(), status: "CONNECTED" },
   });
 
@@ -64,6 +71,7 @@ export async function syncAllConnections(): Promise<
     "AirbnbConnection",
     undefined,
     `${result.count} anuncios`,
+    session.organizationId,
   );
 
   revalidatePath("/integraciones");

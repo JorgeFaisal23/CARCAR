@@ -17,7 +17,7 @@ export const metadata: Metadata = { title: "Servicios" };
 
 export default async function PortalServicesPage() {
   const session = await requireUser(["TENANT"]);
-  const data = await getPortalData(session.sub);
+  const data = await getPortalData(session.sub, session.organizationId);
 
   const services = data.lease?.services ?? [];
   const included = services.filter((s) => s.includedInRent);

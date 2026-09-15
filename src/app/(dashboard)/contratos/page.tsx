@@ -36,10 +36,15 @@ const TEMPLATES = [
 ];
 
 export default async function ContractsPage() {
-  await requireUser(["OWNER", "ADMIN"]);
+  const session = await requireUser(["OWNER", "ADMIN"]);
 
   const leases = await prisma.lease.findMany({
-    where: { status: "ACTIVE" },
+    where: {
+      status: "ACTIVE",
+      ...(session.organizationId
+        ? { unit: { building: { organizationId: session.organizationId } } }
+        : {}),
+    },
     orderBy: { startDate: "desc" },
     take: 8,
     select: {

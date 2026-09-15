@@ -2,12 +2,15 @@ import { prisma } from "@/lib/prisma";
 import { toNumber, daysBetween, periodKey } from "@/lib/format";
 
 /** Listado de inquilinos con el estado de su contrato y de su último pago. */
-export async function getTenants() {
+export async function getTenants(organizationId?: string | null) {
   const now = new Date();
   const period = periodKey(now);
 
   const tenants = await prisma.user.findMany({
-    where: { role: "TENANT" },
+    where: {
+      role: "TENANT",
+      ...(organizationId ? { organizationId } : {}),
+    },
     orderBy: { name: "asc" },
     select: {
       id: true,
@@ -61,9 +64,16 @@ export async function getTenants() {
   });
 }
 
-export async function getTenantDetail(tenantId: string) {
+export async function getTenantDetail(
+  tenantId: string,
+  organizationId?: string | null,
+) {
   const tenant = await prisma.user.findFirst({
-    where: { id: tenantId, role: "TENANT" },
+    where: {
+      id: tenantId,
+      role: "TENANT",
+      ...(organizationId ? { organizationId } : {}),
+    },
     select: {
       id: true,
       name: true,

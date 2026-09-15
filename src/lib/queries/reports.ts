@@ -7,15 +7,22 @@ import { toNumber, periodKey, shiftPeriod, periodShortLabel } from "@/lib/format
  * Se calculan de verdad aunque la pantalla esté bloqueada: la vista previa
  * difuminada tiene que mostrar los números del negocio, no un relleno.
  */
-export async function getReportsData(months = 6) {
+export async function getReportsData(months = 6, organizationId?: string | null) {
   const current = periodKey(new Date());
   const periods = Array.from({ length: months }, (_, i) =>
     shiftPeriod(current, -(months - 1 - i)),
   );
 
+  const orgFilter = organizationId ? { organizationId } : undefined;
+
   const [rentCharges, serviceCharges, buildings, bookings] = await Promise.all([
     prisma.rentCharge.findMany({
-      where: { period: { in: periods } },
+      where: {
+        period: { in: periods },
+        ...(organizationId
+          ? { lease: { unit: { building: orgFilter } } }
+          : {}),
+      },
       select: {
         period: true,
         amount: true,
@@ -31,7 +38,19 @@ export async function getReportsData(months = 6) {
       },
     }),
     prisma.serviceCharge.findMany({
-      where: { period: { in: periods } },
+      where: {
+        period: { in: periods },
+        ...(organizationId
+          ? {
+              serviceAccount: {
+                OR: [
+                  { building: orgFilter },
+                  { unit: { building: orgFilter } },
+                ],
+              },
+            }
+          : {}),
+      },
       select: {
         period: true,
         amount: true,
@@ -45,6 +64,7 @@ export async function getReportsData(months = 6) {
       },
     }),
     prisma.building.findMany({
+      where: orgFilter,
       select: {
         id: true,
         name: true,
@@ -53,7 +73,12 @@ export async function getReportsData(months = 6) {
       orderBy: { name: "asc" },
     }),
     prisma.booking.findMany({
-      where: { status: { in: ["CONFIRMED", "COMPLETED"] } },
+      where: {
+        status: { in: ["CONFIRMED", "COMPLETED"] },
+        ...(organizationId
+          ? { unit: { building: orgFilter } }
+          : {}),
+      },
       select: { totalAmount: true, checkIn: true, source: true },
     }),
   ]);

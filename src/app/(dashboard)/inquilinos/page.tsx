@@ -18,7 +18,7 @@ export const metadata: Metadata = { title: "Inquilinos" };
 
 export default async function TenantsPage() {
   const session = await requireUser(["OWNER", "ADMIN"]);
-  const tenants = await getTenants();
+  const tenants = await getTenants(session.organizationId);
   const editable = canEdit(session.role);
 
   const withLease = tenants.filter((t) => t.hasLease).length;

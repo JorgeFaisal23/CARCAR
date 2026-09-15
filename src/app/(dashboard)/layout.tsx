@@ -16,7 +16,7 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const session = await requireUser(["OWNER", "ADMIN", "VIEWER"]);
-  const org = await getOrganization();
+  const org = await getOrganization(session.organizationId);
 
   return (
     <SidebarProvider>

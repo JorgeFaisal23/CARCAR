@@ -7,15 +7,16 @@ import { toNumber, periodKey } from "@/lib/format";
  * serialización.
  */
 
-export async function getBuildingsOverview() {
+export async function getBuildingsOverview(organizationId?: string | null) {
   const now = new Date();
   const period = periodKey(now);
 
   const buildings = await prisma.building.findMany({
+    where: organizationId ? { organizationId } : undefined,
     orderBy: { name: "asc" },
     include: {
       units: {
-        select: { id: true, status: true, baseRent: true },
+        select: { id: true, status: true, baseRent: true, currency: true },
       },
       serviceAccounts: {
         select: {
@@ -30,7 +31,13 @@ export async function getBuildingsOverview() {
   // El gasto en servicios de un edificio incluye lo facturado a nivel edificio
   // más lo de cada una de sus unidades.
   const unitCharges = await prisma.serviceCharge.findMany({
-    where: { period, serviceAccount: { scope: "UNIT" } },
+    where: {
+      period,
+      serviceAccount: {
+        scope: "UNIT",
+        ...(organizationId ? { unit: { building: { organizationId } } } : {}),
+      },
+    },
     select: {
       amount: true,
       serviceAccount: {
@@ -40,12 +47,12 @@ export async function getBuildingsOverview() {
   });
 
   const unitServiceTotals = new Map<string, number>();
-  for (const charge of unitCharges) {
-    const buildingId = charge.serviceAccount.unit?.buildingId;
-    if (!buildingId) continue;
+  for (const c of unitCharges) {
+    const bId = c.serviceAccount.unit?.buildingId;
+    if (!bId) continue;
     unitServiceTotals.set(
-      buildingId,
-      (unitServiceTotals.get(buildingId) ?? 0) + toNumber(charge.amount),
+      bId,
+      (unitServiceTotals.get(bId) ?? 0) + toNumber(c.amount),
     );
   }
 
@@ -74,17 +81,29 @@ export async function getBuildingsOverview() {
       monthlyRent: building.units
         .filter((u) => u.status === "OCCUPIED")
         .reduce((sum, u) => sum + toNumber(u.baseRent), 0),
+      monthlyRentMXN: building.units
+        .filter((u) => u.status === "OCCUPIED" && u.currency === "MXN")
+        .reduce((sum, u) => sum + toNumber(u.baseRent), 0),
+      monthlyRentUSD: building.units
+        .filter((u) => u.status === "OCCUPIED" && u.currency === "USD")
+        .reduce((sum, u) => sum + toNumber(u.baseRent), 0),
       servicesThisMonth:
         buildingServices + (unitServiceTotals.get(building.id) ?? 0),
     };
   });
 }
 
-export async function getBuildingDetail(buildingId: string) {
+export async function getBuildingDetail(
+  buildingId: string,
+  organizationId?: string | null,
+) {
   const now = new Date();
 
-  const building = await prisma.building.findUnique({
-    where: { id: buildingId },
+  const building = await prisma.building.findFirst({
+    where: {
+      id: buildingId,
+      ...(organizationId ? { organizationId } : {}),
+    },
     include: {
       serviceAccounts: {
         where: { scope: "BUILDING" },
@@ -133,6 +152,7 @@ export async function getBuildingDetail(buildingId: string) {
         name: unit.name,
         type: unit.type,
         status: unit.status,
+        currency: unit.currency,
         floor: unit.floor,
         sizeM2: unit.sizeM2,
         baseRent: toNumber(unit.baseRent),
@@ -147,11 +167,17 @@ export async function getBuildingDetail(buildingId: string) {
   };
 }
 
-export async function getUnitDetail(unitId: string) {
+export async function getUnitDetail(
+  unitId: string,
+  organizationId?: string | null,
+) {
   const now = new Date();
 
-  const unit = await prisma.unit.findUnique({
-    where: { id: unitId },
+  const unit = await prisma.unit.findFirst({
+    where: {
+      id: unitId,
+      ...(organizationId ? { building: { organizationId } } : {}),
+    },
     include: {
       building: {
         include: {
@@ -187,11 +213,14 @@ export async function getUnitDetail(unitId: string) {
     name: unit.name,
     type: unit.type,
     status: unit.status,
+    currency: unit.currency,
     floor: unit.floor,
     bedrooms: unit.bedrooms,
     bathrooms: unit.bathrooms,
     sizeM2: unit.sizeM2,
     baseRent: toNumber(unit.baseRent),
+    nightlyPrice: unit.nightlyPrice ? toNumber(unit.nightlyPrice) : null,
+    weeklyPrice: unit.weeklyPrice ? toNumber(unit.weeklyPrice) : null,
     description: unit.description,
     building: {
       id: unit.building.id,
@@ -263,8 +292,9 @@ export async function getUnitDetail(unitId: string) {
   };
 }
 
-export async function getBuildingsForSelect() {
+export async function getBuildingsForSelect(organizationId?: string | null) {
   return prisma.building.findMany({
+    where: organizationId ? { organizationId } : undefined,
     select: { id: true, name: true },
     orderBy: { name: "asc" },
   });

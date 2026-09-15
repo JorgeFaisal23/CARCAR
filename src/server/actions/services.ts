@@ -27,6 +27,22 @@ export async function setServiceAmount(input: {
 }): Promise<ActionResult> {
   const session = await requireUserAction(["OWNER", "ADMIN"]);
 
+  const account = await prisma.serviceAccount.findFirst({
+    where: {
+      id: input.accountId,
+      ...(session.organizationId
+        ? {
+            OR: [
+              { building: { organizationId: session.organizationId } },
+              { unit: { building: { organizationId: session.organizationId } } },
+            ],
+          }
+        : {}),
+    },
+    select: { id: true },
+  });
+  if (!account) return { error: "Cuenta de servicio no encontrada o sin permisos." };
+
   if (input.amount === null) {
     await prisma.serviceCharge.deleteMany({
       where: { serviceAccountId: input.accountId, period: input.period },
@@ -48,7 +64,14 @@ export async function setServiceAmount(input: {
     update: { amount },
   });
 
-  await logAction(session.sub, "Captura de servicio", "ServiceCharge", accountId, `${period}: ${amount}`);
+  await logAction(
+    session.sub,
+    "Captura de servicio",
+    "ServiceCharge",
+    accountId,
+    `${period}: ${amount}`,
+    session.organizationId,
+  );
 
   revalidatePath("/servicios");
   revalidatePath("/dashboard");
@@ -68,13 +91,24 @@ export async function copyPreviousMonth(period: string): Promise<
 
   const previous = shiftPeriod(period, -1);
 
+  const orgFilter = session.organizationId
+    ? {
+        serviceAccount: {
+          OR: [
+            { building: { organizationId: session.organizationId } },
+            { unit: { building: { organizationId: session.organizationId } } },
+          ],
+        },
+      }
+    : {};
+
   const [previousCharges, existing] = await Promise.all([
     prisma.serviceCharge.findMany({
-      where: { period: previous },
+      where: { period: previous, ...orgFilter },
       select: { serviceAccountId: true, amount: true },
     }),
     prisma.serviceCharge.findMany({
-      where: { period },
+      where: { period, ...orgFilter },
       select: { serviceAccountId: true },
     }),
   ]);
@@ -102,6 +136,7 @@ export async function copyPreviousMonth(period: string): Promise<
     "ServiceCharge",
     undefined,
     `${previous} → ${period}: ${pending.length} montos`,
+    session.organizationId,
   );
 
   revalidatePath("/servicios");

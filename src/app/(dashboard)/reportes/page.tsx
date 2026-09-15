@@ -26,8 +26,11 @@ import {
 export const metadata: Metadata = { title: "Reportes" };
 
 export default async function ReportsPage() {
-  await requireUser(["OWNER", "ADMIN"]);
-  const [data, org] = await Promise.all([getReportsData(), getOrganization()]);
+  const session = await requireUser(["OWNER", "ADMIN"]);
+  const [data, org] = await Promise.all([
+    getReportsData(6, session.organizationId),
+    getOrganization(session.organizationId),
+  ]);
   // Colores concretos derivados de la marca: Recharts no resuelve var() en los
   // atributos del SVG.
   const colors = chartPalette(org.primaryColor);

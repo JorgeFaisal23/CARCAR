@@ -10,8 +10,15 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createClient() {
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    throw new Error(
+      "La variable de entorno DATABASE_URL no está configurada. Por favor, crea un archivo .env en la raíz del proyecto con la cadena de conexión de PostgreSQL.",
+    );
+  }
+
   const adapter = new PrismaPg({
-    connectionString: process.env.DATABASE_URL,
+    connectionString,
   });
   return new PrismaClient({ adapter });
 }

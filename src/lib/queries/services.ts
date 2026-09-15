@@ -20,11 +20,16 @@ export type ServiceCell = {
   includedInRent: boolean;
 };
 
-export async function getServicesBoard(period: string) {
+export async function getServicesBoard(
+  period: string,
+  organizationId?: string | null,
+) {
   const previousPeriod = shiftPeriod(period, -1);
+  const orgFilter = organizationId ? { organizationId } : undefined;
 
   const [buildings, previousCharges] = await Promise.all([
     prisma.building.findMany({
+      where: orgFilter,
       orderBy: { name: "asc" },
       include: {
         serviceAccounts: {
@@ -45,7 +50,19 @@ export async function getServicesBoard(period: string) {
       },
     }),
     prisma.serviceCharge.findMany({
-      where: { period: previousPeriod },
+      where: {
+        period: previousPeriod,
+        ...(organizationId
+          ? {
+              serviceAccount: {
+                OR: [
+                  { building: orgFilter },
+                  { unit: { building: orgFilter } },
+                ],
+              },
+            }
+          : {}),
+      },
       select: { amount: true },
     }),
   ]);
