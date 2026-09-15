@@ -178,8 +178,8 @@ docker compose up -d --build
 Una vez que los contenedores estén corriendo:
 
 ```bash
-# Crear las tablas en la base de datos de producción
-docker compose exec web npx prisma db push
+# Aplicar las migraciones formales en la base de datos de producción
+docker compose exec web npm run db:migrate
 
 # Importar las 121 unidades del portafolio de CARCAR
 docker compose exec web npx tsx scripts/import-carcar-portfolio.ts
