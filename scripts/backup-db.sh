@@ -13,7 +13,8 @@ mkdir -p "${BACKUP_DIR}"
 
 echo "[$(date)] Iniciando respaldo de la base de datos..."
 
-# Generar dump y comprimir
+# Generar dump y comprimir (PGPASSWORD es requerida por pg_dump para autenticación no interactiva)
+export PGPASSWORD="${POSTGRES_PASSWORD}"
 pg_dump -h db -U "${POSTGRES_USER}" "${POSTGRES_DB}" | gzip > "${BACKUP_FILE}"
 
 echo "[$(date)] Respaldo generado con éxito: ${BACKUP_FILE} ($(du -h "${BACKUP_FILE}" | cut -f1))"

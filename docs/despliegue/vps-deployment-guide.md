@@ -175,14 +175,16 @@ docker compose up -d --build
 ```
 
 ### Inicialización de Base de Datos y Portafolio de CARCAR
-Una vez que los contenedores estén corriendo:
+Al levantar los contenedores con `docker compose up -d`, las migraciones de Prisma se ejecutan **automáticamente** al arrancar el contenedor `web`.
+
+Para verificar o importar el portafolio de CARCAR (o ejecutar migraciones manuales si fuera necesario):
 
 ```bash
-# Aplicar las migraciones formales en la base de datos de producción
+# (Opcional) Verificar o re-ejecutar migraciones de Prisma manualmente:
 docker compose exec web npm run db:migrate
 
-# Importar las 121 unidades del portafolio de CARCAR
-docker compose exec web npx tsx scripts/import-carcar-portfolio.ts
+# Importar las 121 unidades del portafolio de CARCAR y crear el usuario OWNER:
+docker compose exec web npm run db:import:carcar
 ```
 
 ---

@@ -77,6 +77,7 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-rentacore_admin}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB:-rentacore_prod}
     volumes:
       - ./scripts/backup-db.sh:/backup-db.sh:ro
@@ -84,7 +85,7 @@ services:
     networks:
       - internal
     # Ejecuta el respaldo cada noche a las 3:00 AM UTC
-    entrypoint: ["/bin/sh", "-c", "echo '0 3 * * * /backup-db.sh >> /var/log/cron.log 2>&1' > /etc/crontabs/root && crond -f -l 2"]
+    entrypoint: ["/bin/sh", "-c", "echo '0 3 * * * sh /backup-db.sh >> /var/log/cron.log 2>&1' > /etc/crontabs/root && crond -f -l 2"]
 
 volumes:
   db_data:
