@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import {
   SESSION_COOKIE,
@@ -18,10 +18,22 @@ export async function getSession(): Promise<SessionPayload | null> {
 export async function createSession(payload: SessionPayload) {
   const token = await signSession(payload);
   const store = await cookies();
+
+  let isSecure = false;
+  try {
+    const headerStore = await headers();
+    const proto = headerStore.get("x-forwarded-proto");
+    isSecure =
+      process.env.COOKIE_SECURE === "true" ||
+      (proto === "https" && process.env.COOKIE_SECURE !== "false");
+  } catch {
+    isSecure = process.env.COOKIE_SECURE === "true";
+  }
+
   store.set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: isSecure,
     path: "/",
     maxAge: SESSION_MAX_AGE,
   });
