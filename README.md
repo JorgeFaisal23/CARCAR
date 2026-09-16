@@ -197,6 +197,7 @@ Variables de entorno (ver `.env.example`):
 | `DIRECT_URL` | Conexión que Prisma usa para migrar (igual a `DATABASE_URL` salvo que haya un pooler) |
 | `AUTH_SECRET` | Clave con la que se firman las sesiones |
 | `NEXT_PUBLIC_APP_NAME` | Nombre del producto (placeholder `AppRentas`). También `NEXT_PUBLIC_APP_TAGLINE`, `NEXT_PUBLIC_APP_COLOR` y `NEXT_PUBLIC_APP_URL`. Se incrustan al compilar |
+| `COOKIE_SECURE` | Cookie de sesión `secure`. Vacío: la decide `X-Forwarded-Proto` del proxy; `true` la fuerza; `false` la apaga |
 | `DEMO_MODE` | `true` muestra las cuentas de prueba en el acceso. Nunca en producción |
 | `SHADOW_DATABASE_URL` | Solo desarrollo: base auxiliar de `migrate dev` |
 | `TEST_DATABASE_URL` | Solo desarrollo: base de las pruebas de integración |
@@ -324,8 +325,10 @@ docker compose --env-file .env.production run --rm app create-superadmin tu@corr
   migrar (CLI de Prisma) y crear superadministradores.
 - Si ya tienes un PostgreSQL propio, quita el servicio `db` del compose y
   define `DATABASE_URL` y `DIRECT_URL` en `.env.production`.
-- Pon un proxy inverso con HTTPS delante (Caddy, Nginx…): la cookie de sesión
-  es `secure` en producción. La app ya manda sus encabezados de seguridad
+- Pon un proxy inverso con HTTPS delante (Caddy, Nginx…) que mande
+  `X-Forwarded-Proto`: con `https` la cookie de sesión sale `secure`
+  (`COOKIE_SECURE=true` lo fuerza). Una prueba sin proxy, por
+  `http://IP:3000`, funciona porque la cookie no se marca `secure`. La app ya manda sus encabezados de seguridad
   (CSP, `X-Frame-Options`, `nosniff`…, en [`next.config.ts`](next.config.ts));
   HSTS conviene ponerlo en el proxy, una vez que HTTPS funcione.
 

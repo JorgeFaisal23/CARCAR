@@ -7,6 +7,11 @@ y este proyecto se adhiere a [Semantic Versioning](https://semver.org/lang/es/) 
 
 ---
 
+## [Sin publicar]
+
+### Corregido
+- **Inicio de sesión por HTTP**: la cookie de sesión ya no es `secure` siempre que la app corre en producción. Ahora sigue el encabezado `X-Forwarded-Proto` del proxy, y la variable `COOKIE_SECURE` (`true`/`false`) la fuerza o la apaga. Antes, al entrar sin HTTPS (por ejemplo, una prueba por `http://IP:3000`), el navegador descartaba la cookie y no se podía iniciar sesión. Se trajo de `main` (`aeb7ab8`).
+
 ## [0.7.0] - 2026-10-04
 
 ### Añadido
