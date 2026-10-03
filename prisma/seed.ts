@@ -1,4 +1,4 @@
-import "dotenv/config";
+import "./env";
 import bcrypt from "bcryptjs";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
@@ -192,49 +192,27 @@ function receiptDataUrl(opts: {
 
 // ------------------------------------------------------------------ siembra
 
-async function main() {
-  console.log("Limpiando datos anteriores…");
-  await prisma.auditLog.deleteMany();
-  await prisma.rentCharge.deleteMany();
-  await prisma.lease.deleteMany();
-  await prisma.booking.deleteMany();
-  await prisma.airbnbConnection.deleteMany();
-  await prisma.serviceCharge.deleteMany();
-  await prisma.serviceAccount.deleteMany();
-  await prisma.unit.deleteMany();
-  await prisma.building.deleteMany();
-  await prisma.user.deleteMany();
-  await prisma.organization.deleteMany();
-
-  const passwordHash = bcrypt.hashSync(PASSWORD, 10);
-
-  // ---------------------------------------------------------- organización
-  await prisma.organization.create({
-    data: {
-      name: "Rentas del Valle",
-      brandName: "Rentas del Valle",
-      plan: "FREE",
-      primaryColor: "#0F766E",
-      radius: "SOFT",
-      fontFamily: "Inter",
-      contactEmail: "contacto@rentasdelvalle.mx",
-      contactPhone: "55 1122 3344",
-    },
-  });
-
+/**
+ * Arrendadora principal de la demo: dos edificios, contratos, servicios, cobros
+ * con historial y reservas de corta estancia.
+ */
+async function seedRentasDelValle(orgId: string, passwordHash: string) {
   // ---------------------------------------------------------- usuarios staff
   const staff = await Promise.all(
     [
       { email: "dueno@demo.mx", name: "Carlos Márquez", role: "OWNER" as const, phone: "55 1000 2000" },
       { email: "admin@demo.mx", name: "Daniela Ruiz", role: "ADMIN" as const, phone: "55 1000 3000" },
       { email: "consulta@demo.mx", name: "Despacho Contable Nava", role: "VIEWER" as const, phone: "55 1000 4000" },
-    ].map((u) => prisma.user.create({ data: { ...u, passwordHash } })),
+    ].map((u) =>
+      prisma.user.create({ data: { ...u, passwordHash, organizationId: orgId } }),
+    ),
   );
   console.log(`Usuarios administrativos: ${staff.length}`);
 
   // ---------------------------------------------------------- edificios
   const reforma = await prisma.building.create({
     data: {
+      organizationId: orgId,
       name: "Edificio Reforma",
       address: "Av. Reforma 148, Col. Juárez",
       city: "Ciudad de México",
@@ -244,6 +222,7 @@ async function main() {
 
   const juarez = await prisma.building.create({
     data: {
+      organizationId: orgId,
       name: "Casa Juárez",
       address: "Calle Juárez 22, Col. Centro",
       city: "Ciudad de México",
@@ -260,6 +239,7 @@ async function main() {
     for (const seed of seeds) {
       const unit = await prisma.unit.create({
         data: {
+          organizationId: orgId,
           buildingId: building.id,
           code: seed.code,
           type: seed.type,
@@ -291,6 +271,7 @@ async function main() {
   ] as const) {
     const agua = await prisma.serviceAccount.create({
       data: {
+        organizationId: orgId,
         type: "WATER",
         scope: "BUILDING",
         buildingId: building.id,
@@ -302,6 +283,7 @@ async function main() {
     });
     const mtto = await prisma.serviceAccount.create({
       data: {
+        organizationId: orgId,
         type: "MAINTENANCE",
         scope: "BUILDING",
         buildingId: building.id,
@@ -331,6 +313,7 @@ async function main() {
 
       const luz = await prisma.serviceAccount.create({
         data: {
+          organizationId: orgId,
           type: "ELECTRICITY",
           scope: "UNIT",
           unitId: unit.id,
@@ -349,6 +332,7 @@ async function main() {
       if (seed.status !== "MAINTENANCE") {
         const net = await prisma.serviceAccount.create({
           data: {
+            organizationId: orgId,
             type: "INTERNET",
             scope: "UNIT",
             unitId: unit.id,
@@ -380,6 +364,7 @@ async function main() {
       const spread = account.type === "INTERNET" ? 0 : account.base * 0.35;
       await prisma.serviceCharge.create({
         data: {
+          organizationId: orgId,
           serviceAccountId: account.id,
           period: key,
           amount: amountAround(account.base, spread, index * 3.1 + offset),
@@ -399,6 +384,7 @@ async function main() {
   for (const [index, t] of TENANTS.entries()) {
     const tenant = await prisma.user.create({
       data: {
+        organizationId: orgId,
         email: t.email,
         name: t.name,
         phone: t.phone,
@@ -420,6 +406,7 @@ async function main() {
 
     const lease = await prisma.lease.create({
       data: {
+        organizationId: orgId,
         unitId: unit.id,
         tenantId: tenant.id,
         startDate,
@@ -453,6 +440,7 @@ async function main() {
 
       await prisma.rentCharge.create({
         data: {
+          organizationId: orgId,
           leaseId: lease.id,
           period: key,
           dueDate: dayIn(offset, t.paymentDay),
@@ -499,6 +487,7 @@ async function main() {
 
     await prisma.airbnbConnection.create({
       data: {
+        organizationId: orgId,
         unitId: unit.id,
         listingName: st.listing,
         listingUrl: `https://www.airbnb.mx/rooms/${40000000 + i * 137}`,
@@ -519,6 +508,7 @@ async function main() {
 
       await prisma.booking.create({
         data: {
+          organizationId: orgId,
           unitId: unit.id,
           source: bookingCount % 5 === 4 ? "DIRECT" : "AIRBNB",
           externalId: `HM${String(bookingCount + 1).padStart(6, "0")}`,
@@ -539,11 +529,185 @@ async function main() {
   }
   console.log(`Reservas: ${bookingCount} en ${shortTermCodes.length} unidades conectadas`);
 
-  console.log("\nListo. Cuentas de demostración (contraseña: demo1234)");
-  console.log("  dueno@demo.mx      Arrendador");
-  console.log("  admin@demo.mx      Administrativo");
-  console.log("  consulta@demo.mx   Solo lectura (calendario)");
-  console.log("  inquilino@demo.mx  Inquilino (portal)");
+}
+
+/**
+ * Segunda arrendadora, pequeña y en plan gratuito. Existe para que la demo (y
+ * las pruebas) muestren que cada arrendadora solo ve lo suyo.
+ */
+async function seedCasaNorte(orgId: string, passwordHash: string) {
+  await prisma.user.create({
+    data: {
+      organizationId: orgId,
+      email: "dueno2@demo.mx",
+      name: "Lucía Benítez",
+      role: "OWNER",
+      phone: "81 2000 1000",
+      passwordHash,
+    },
+  });
+
+  const building = await prisma.building.create({
+    data: {
+      organizationId: orgId,
+      name: "Residencial Norte",
+      address: "Av. Constitución 410, Col. Centro",
+      city: "Monterrey",
+    },
+  });
+
+  const units = [];
+  for (const [code, status, rent] of [
+    ["N-1", "OCCUPIED", 8900],
+    ["N-2", "AVAILABLE", 8500],
+    ["N-3", "AVAILABLE", 9200],
+  ] as const) {
+    units.push(
+      await prisma.unit.create({
+        data: {
+          organizationId: orgId,
+          buildingId: building.id,
+          code,
+          type: "APARTMENT",
+          status,
+          bedrooms: 1,
+          bathrooms: 1,
+          sizeM2: 45,
+          baseRent: rent,
+        },
+      }),
+    );
+  }
+
+  const tenant = await prisma.user.create({
+    data: {
+      organizationId: orgId,
+      email: "inquilino2@demo.mx",
+      name: "Héctor Garza",
+      role: "TENANT",
+      phone: "81 3000 4000",
+      passwordHash,
+    },
+  });
+
+  const lease = await prisma.lease.create({
+    data: {
+      organizationId: orgId,
+      unitId: units[0].id,
+      tenantId: tenant.id,
+      startDate: dayIn(-3, 1),
+      endDate: dayIn(9, 1),
+      rentAmount: 8900,
+      depositAmount: 8900,
+      paymentDay: 5,
+      status: "ACTIVE",
+    },
+  });
+
+  for (const [offset, key] of HISTORY) {
+    if (offset < -3) continue;
+    const isCurrent = key === CURRENT;
+    await prisma.rentCharge.create({
+      data: {
+        organizationId: orgId,
+        leaseId: lease.id,
+        period: key,
+        dueDate: dayIn(offset, 5),
+        amount: 8900,
+        paidAmount: isCurrent ? 0 : 8900,
+        status: isCurrent ? "PENDING" : "PAID",
+        paidAt: isCurrent ? null : dayIn(offset, 4),
+        method: isCurrent ? null : "Transferencia",
+      },
+    });
+  }
+
+  await prisma.serviceAccount.create({
+    data: {
+      organizationId: orgId,
+      type: "ELECTRICITY",
+      scope: "UNIT",
+      unitId: units[0].id,
+      providerName: "CFE",
+      contractNumber: "9100221",
+      includedInRent: false,
+    },
+  });
+
+  console.log("Casa Norte: 1 edificio, 3 unidades, 1 contrato");
+}
+
+// ------------------------------------------------------------------ orquestación
+
+async function main() {
+  console.log("Limpiando datos anteriores…");
+  await prisma.auditLog.deleteMany();
+  await prisma.rentCharge.deleteMany();
+  await prisma.lease.deleteMany();
+  await prisma.booking.deleteMany();
+  await prisma.airbnbConnection.deleteMany();
+  await prisma.serviceCharge.deleteMany();
+  await prisma.serviceAccount.deleteMany();
+  await prisma.unit.deleteMany();
+  await prisma.building.deleteMany();
+  await prisma.user.deleteMany();
+  await prisma.organization.deleteMany();
+
+  const passwordHash = bcrypt.hashSync(PASSWORD, 10);
+
+  // ---------------------------------------------------------- plataforma
+  const superadminEmail = (
+    process.env.SEED_SUPERADMIN_EMAIL ?? "super@demo.mx"
+  ).toLowerCase();
+  await prisma.user.create({
+    data: {
+      email: superadminEmail,
+      name: "Administración de la plataforma",
+      role: "SUPERADMIN",
+      passwordHash,
+    },
+  });
+
+  // ---------------------------------------------------------- arrendadoras
+  const valle = await prisma.organization.create({
+    data: {
+      slug: "demo",
+      name: "Rentas del Valle",
+      brandName: "Rentas del Valle",
+      plan: "PREMIUM",
+      primaryColor: "#0F766E",
+      radius: "SOFT",
+      fontFamily: "Inter",
+      contactEmail: "contacto@rentasdelvalle.mx",
+      contactPhone: "55 1122 3344",
+    },
+  });
+  await seedRentasDelValle(valle.id, passwordHash);
+
+  const norte = await prisma.organization.create({
+    data: {
+      slug: "demo2",
+      name: "Casa Norte",
+      brandName: "Casa Norte",
+      plan: "FREE",
+      primaryColor: "#1D4ED8",
+      radius: "ROUND",
+      fontFamily: "Poppins",
+      contactEmail: "hola@casanorte.mx",
+    },
+  });
+  await seedCasaNorte(norte.id, passwordHash);
+
+  console.log(`\nListo. Contraseña para todas las cuentas: ${PASSWORD}`);
+  console.log(`  ${superadminEmail.padEnd(20)} Superadministrador (plataforma)`);
+  console.log("  Rentas del Valle (slug demo, Premium)");
+  console.log("    dueno@demo.mx        Arrendador");
+  console.log("    admin@demo.mx        Administrativo");
+  console.log("    consulta@demo.mx     Solo lectura (calendario)");
+  console.log("    inquilino@demo.mx    Inquilino (portal)");
+  console.log("  Casa Norte (slug demo2, gratuito)");
+  console.log("    dueno2@demo.mx       Arrendador");
+  console.log("    inquilino2@demo.mx   Inquilino (portal)");
 }
 
 main()

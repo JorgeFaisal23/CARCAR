@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import type { OrgDb } from "@/lib/db/scoped";
 import { toNumber, daysBetween } from "@/lib/format";
 
 /**
@@ -7,11 +7,11 @@ import { toNumber, daysBetween } from "@/lib/format";
  * Todo se filtra por el id de la sesión en el servidor: el portal nunca recibe
  * información de otras unidades ni de otros inquilinos.
  */
-export async function getPortalData(userId: string) {
+export async function getPortalData(db: OrgDb, userId: string) {
   const now = new Date();
 
   const [lease, booking, organization] = await Promise.all([
-    prisma.lease.findFirst({
+    db.lease.findFirst({
       where: { tenantId: userId, status: "ACTIVE" },
       select: {
         id: true,
@@ -58,7 +58,7 @@ export async function getPortalData(userId: string) {
       },
     }),
     // Un huésped de estancia corta ve su reserva en vez de un contrato.
-    prisma.booking.findFirst({
+    db.booking.findFirst({
       where: {
         guestUserId: userId,
         status: "CONFIRMED",
@@ -81,7 +81,7 @@ export async function getPortalData(userId: string) {
         },
       },
     }),
-    prisma.organization.findFirst({
+    db.organization.findFirst({
       select: { brandName: true, contactEmail: true, contactPhone: true },
     }),
   ]);

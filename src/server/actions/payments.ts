@@ -1,8 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/prisma";
-import { requireUserAction } from "@/lib/auth/session";
+import { requireOrgUserAction } from "@/lib/auth/session";
 import { periodToDate } from "@/lib/format";
 import { logAction } from "@/server/actions/audit";
 import type { ActionResult } from "@/lib/action-result";
@@ -16,7 +15,7 @@ const PERIOD = /^\d{4}-\d{2}$/;
 export async function generateMonthlyCharges(
   period: string,
 ): Promise<ActionResult & { created?: number }> {
-  const session = await requireUserAction(["OWNER", "ADMIN"]);
+  const { session, orgId, db } = await requireOrgUserAction(["OWNER", "ADMIN"]);
   if (!PERIOD.test(period)) return { error: "Periodo no válido." };
 
   const monthStart = periodToDate(period);
@@ -26,7 +25,7 @@ export async function generateMonthlyCharges(
     0,
   );
 
-  const leases = await prisma.lease.findMany({
+  const leases = await db.lease.findMany({
     where: {
       status: "ACTIVE",
       startDate: { lte: monthEnd },
@@ -40,8 +39,9 @@ export async function generateMonthlyCharges(
 
   const lastDay = monthEnd.getDate();
 
-  await prisma.rentCharge.createMany({
+  await db.rentCharge.createMany({
     data: leases.map((lease) => ({
+      organizationId: orgId,
       leaseId: lease.id,
       period,
       // Si el contrato dice "día 31" y el mes tiene 30, se cobra el último día.
@@ -58,6 +58,7 @@ export async function generateMonthlyCharges(
   });
 
   await logAction(
+    db,
     session.sub,
     "Generación de cargos de renta",
     "RentCharge",
@@ -84,9 +85,9 @@ export async function markChargePaid(input: {
   reference?: string;
   receiptUrl?: string;
 }): Promise<ActionResult> {
-  const session = await requireUserAction(["OWNER", "ADMIN"]);
+  const { session, db } = await requireOrgUserAction(["OWNER", "ADMIN"]);
 
-  const charge = await prisma.rentCharge.findUnique({
+  const charge = await db.rentCharge.findUnique({
     where: { id: input.chargeId },
     select: { amount: true, lease: { select: { tenantId: true } } },
   });
@@ -102,7 +103,7 @@ export async function markChargePaid(input: {
     }
   }
 
-  await prisma.rentCharge.update({
+  await db.rentCharge.update({
     where: { id: input.chargeId },
     data: {
       status: "PAID",
@@ -114,7 +115,7 @@ export async function markChargePaid(input: {
     },
   });
 
-  await logAction(session.sub, "Registro de pago", "RentCharge", input.chargeId, input.method);
+  await logAction(db, session.sub, "Registro de pago", "RentCharge", input.chargeId, input.method);
 
   revalidatePath("/pagos");
   revalidatePath("/dashboard");
@@ -125,9 +126,9 @@ export async function markChargePaid(input: {
 
 /** Deshace un pago registrado por error. */
 export async function markChargeUnpaid(chargeId: string): Promise<ActionResult> {
-  const session = await requireUserAction(["OWNER", "ADMIN"]);
+  const { session, db } = await requireOrgUserAction(["OWNER", "ADMIN"]);
 
-  const charge = await prisma.rentCharge.findUnique({
+  const charge = await db.rentCharge.findUnique({
     where: { id: chargeId },
     select: { dueDate: true, lease: { select: { tenantId: true } } },
   });
@@ -136,7 +137,7 @@ export async function markChargeUnpaid(chargeId: string): Promise<ActionResult> 
   // Al deshacer, el estado correcto depende de si ya venció la fecha de pago.
   const overdue = charge.dueDate < new Date();
 
-  await prisma.rentCharge.update({
+  await db.rentCharge.update({
     where: { id: chargeId },
     data: {
       status: overdue ? "OVERDUE" : "PENDING",
@@ -149,7 +150,7 @@ export async function markChargeUnpaid(chargeId: string): Promise<ActionResult> 
     },
   });
 
-  await logAction(session.sub, "Cancelación de pago", "RentCharge", chargeId);
+  await logAction(db, session.sub, "Cancelación de pago", "RentCharge", chargeId);
 
   revalidatePath("/pagos");
   revalidatePath("/dashboard");

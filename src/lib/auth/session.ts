@@ -1,9 +1,13 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { orgDb, type OrgDb } from "@/lib/db/scoped";
+import { homePathFor } from "@/lib/permissions";
 import {
   SESSION_COOKIE,
   SESSION_MAX_AGE,
+  type OrgRole,
   type Role,
   type SessionPayload,
   signSession,
@@ -28,59 +32,142 @@ export async function createSession(payload: SessionPayload) {
   });
 }
 
+/** Solo en Server Actions y Route Handlers: Next no deja tocar cookies al renderizar. */
 export async function destroySession() {
   const store = await cookies();
   store.delete(SESSION_COOKIE);
 }
 
+// ------------------------------------------------------------ validación
+
+/** Por qué una sesión con firma válida ya no sirve. Se usa como `?motivo=`. */
+export type SessionProblem =
+  | "sesion_duplicada"
+  | "cuenta_inactiva"
+  | "organizacion_suspendida";
+
+export const SESSION_PROBLEMS: readonly SessionProblem[] = [
+  "sesion_duplicada",
+  "cuenta_inactiva",
+  "organizacion_suspendida",
+];
+
+const PROBLEM_MESSAGES: Record<SessionProblem, string> = {
+  sesion_duplicada:
+    "Tu sesión fue cerrada porque se inició sesión en otro dispositivo.",
+  cuenta_inactiva: "Tu cuenta ya no está activa o tu sesión ha expirado.",
+  organizacion_suspendida:
+    "El acceso de tu arrendadora está suspendido. Contacta al administrador de la plataforma.",
+};
+
+/** Una sola consulta por petición aunque layout y página validen la sesión. */
+const loadAccount = cache(async (userId: string) =>
+  prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      active: true,
+      currentSessionId: true,
+      organizationId: true,
+      organization: { select: { status: true } },
+    },
+  }),
+);
+
+/**
+ * El JWT solo prueba quién firmó; la base dice si la sesión sigue valiendo:
+ * cuenta activa, misma arrendadora, sesión vigente (una por usuario) y
+ * arrendadora no suspendida.
+ */
+export async function findSessionProblem(
+  session: SessionPayload,
+): Promise<SessionProblem | null> {
+  const user = await loadAccount(session.sub);
+  if (!user || !user.active) return "cuenta_inactiva";
+  if (user.organizationId !== session.orgId) return "cuenta_inactiva";
+  if (user.currentSessionId !== session.sessionId) return "sesion_duplicada";
+  if (user.organization && user.organization.status !== "ACTIVE") {
+    return "organizacion_suspendida";
+  }
+  return null;
+}
+
+/**
+ * A dónde vuelve alguien al salir. Mientras no exista el acceso con marca
+ * (/a/{slug}/login) todos vuelven al genérico.
+ */
+export function loginPathFor(orgSlug: string | null | undefined) {
+  void orgSlug;
+  return "/login";
+}
+
+// ------------------------------------------------------------ páginas
+
 /**
  * Exige una sesión válida y, opcionalmente, uno de los roles indicados.
- * Valida en base de datos que la sesión sea la única activa.
  * Redirige en vez de lanzar para que las páginas no tengan que manejarlo.
+ *
+ * Una sesión que ya no vale se manda a /salir: ahí un Route Handler borra la
+ * cookie (durante el render no se puede) y lleva al acceso con el motivo.
  */
 export async function requireUser(roles?: Role[]): Promise<SessionPayload> {
   const session = await getSession();
   if (!session) redirect("/login");
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.sub },
-    select: { active: true, currentSessionId: true },
-  });
+  const problem = await findSessionProblem(session);
+  if (problem) redirect(`/salir?motivo=${problem}`);
 
-  if (!user || !user.active) {
-    await destroySession();
-    redirect("/login");
-  }
-
-  if (user.currentSessionId !== session.sessionId) {
-    await destroySession();
-    redirect("/login?motivo=sesion_duplicada");
-  }
-
-  if (roles && !roles.includes(session.role)) {
-    redirect(session.role === "TENANT" ? "/portal" : "/dashboard");
-  }
+  if (roles && !roles.includes(session.role)) redirect(homePathFor(session.role));
   return session;
 }
+
+/** Sesión de un usuario de arrendadora: el orgId y el slug siempre existen. */
+export type OrgSession = SessionPayload & {
+  role: OrgRole;
+  orgId: string;
+  orgSlug: string;
+};
+
+export type OrgContext = {
+  session: OrgSession;
+  orgId: string;
+  /** Cliente limitado a la arrendadora de la sesión (ver src/lib/db/scoped.ts). */
+  db: OrgDb;
+};
+
+function toOrgContext(session: SessionPayload): OrgContext | null {
+  if (session.role === "SUPERADMIN" || !session.orgId || !session.orgSlug) {
+    return null;
+  }
+  return {
+    session: session as OrgSession,
+    orgId: session.orgId,
+    db: orgDb(session.orgId),
+  };
+}
+
+/** Para páginas del panel y del portal: sesión + cliente con alcance. */
+export async function requireOrgUser(roles?: OrgRole[]): Promise<OrgContext> {
+  const session = await requireUser(roles);
+  const context = toOrgContext(session);
+  if (!context) redirect(homePathFor(session.role));
+  return context;
+}
+
+export async function requireSuperadmin(): Promise<SessionPayload> {
+  return requireUser(["SUPERADMIN"]);
+}
+
+// ------------------------------------------------------------ server actions
 
 /** Para Server Actions: lanza en vez de redirigir. */
 export async function requireUserAction(roles?: Role[]): Promise<SessionPayload> {
   const session = await getSession();
   if (!session) throw new Error("Sesión no válida. Vuelve a iniciar sesión.");
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.sub },
-    select: { active: true, currentSessionId: true },
-  });
-
-  if (!user || !user.active) {
+  const problem = await findSessionProblem(session);
+  if (problem) {
     await destroySession();
-    throw new Error("Tu cuenta ya no está activa o tu sesión ha expirado.");
-  }
-
-  if (user.currentSessionId !== session.sessionId) {
-    await destroySession();
-    throw new Error("Tu sesión fue cerrada porque se inició sesión en otro dispositivo.");
+    throw new Error(PROBLEM_MESSAGES[problem]);
   }
 
   if (roles && !roles.includes(session.role)) {
@@ -89,20 +176,26 @@ export async function requireUserAction(roles?: Role[]): Promise<SessionPayload>
   return session;
 }
 
-/** Comprueba si la sesión actual sigue siendo la activa en BD (para el monitor en cliente). */
-export async function checkSessionActive(): Promise<boolean> {
+export async function requireOrgUserAction(roles?: OrgRole[]): Promise<OrgContext> {
+  const session = await requireUserAction(roles);
+  const context = toOrgContext(session);
+  if (!context) throw new Error("No tienes permiso para realizar esta acción.");
+  return context;
+}
+
+export async function requireSuperadminAction(): Promise<SessionPayload> {
+  return requireUserAction(["SUPERADMIN"]);
+}
+
+/**
+ * Para el monitor en cliente: devuelve el problema de la sesión (y la cierra)
+ * o null si sigue activa.
+ */
+export async function checkSessionProblem(): Promise<SessionProblem | "sin_sesion" | null> {
   const session = await getSession();
-  if (!session) return false;
+  if (!session) return "sin_sesion";
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.sub },
-    select: { active: true, currentSessionId: true },
-  });
-
-  if (!user || !user.active || user.currentSessionId !== session.sessionId) {
-    await destroySession();
-    return false;
-  }
-
-  return true;
+  const problem = await findSessionProblem(session);
+  if (problem) await destroySession();
+  return problem;
 }

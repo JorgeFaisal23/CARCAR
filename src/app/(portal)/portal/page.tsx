@@ -19,7 +19,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { requireUser } from "@/lib/auth/session";
+import { requireOrgUser } from "@/lib/auth/session";
 import { getPortalData } from "@/lib/queries/portal";
 import { deadlineLabel, longDate, money, periodLabel, shortDate } from "@/lib/format";
 import {
@@ -32,8 +32,8 @@ import {
 export const metadata: Metadata = { title: "Mi vivienda" };
 
 export default async function PortalHomePage() {
-  const session = await requireUser(["TENANT"]);
-  const data = await getPortalData(session.sub);
+  const { session, db } = await requireOrgUser(["TENANT"]);
+  const data = await getPortalData(db, session.sub);
 
   const firstName = session.name.split(" ")[0];
 

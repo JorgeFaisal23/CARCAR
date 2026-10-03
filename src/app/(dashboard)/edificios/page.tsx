@@ -6,7 +6,7 @@ import { ButtonLink } from "@/components/shared/button-link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { getBuildingsOverview } from "@/lib/queries/properties";
-import { requireUser } from "@/lib/auth/session";
+import { requireOrgUser } from "@/lib/auth/session";
 import { canEdit } from "@/lib/permissions";
 import { money, moneyCompact } from "@/lib/format";
 import { NewBuildingDialog } from "./new-building-dialog";
@@ -14,8 +14,8 @@ import { NewBuildingDialog } from "./new-building-dialog";
 export const metadata: Metadata = { title: "Propiedades" };
 
 export default async function BuildingsPage() {
-  const session = await requireUser(["OWNER", "ADMIN"]);
-  const buildings = await getBuildingsOverview();
+  const { session, db } = await requireOrgUser(["OWNER", "ADMIN"]);
+  const buildings = await getBuildingsOverview(db);
   const editable = canEdit(session.role);
 
   const totalUnits = buildings.reduce((sum, b) => sum + b.totalUnits, 0);

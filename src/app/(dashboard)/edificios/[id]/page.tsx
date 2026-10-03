@@ -14,7 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getBuildingDetail } from "@/lib/queries/properties";
-import { requireUser } from "@/lib/auth/session";
+import { requireOrgUser } from "@/lib/auth/session";
 import { canEdit } from "@/lib/permissions";
 import { money, shortDate } from "@/lib/format";
 import {
@@ -30,8 +30,9 @@ export async function generateMetadata({
 }: {
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
+  const { db } = await requireOrgUser(["OWNER", "ADMIN"]);
   const { id } = await params;
-  const building = await getBuildingDetail(id);
+  const building = await getBuildingDetail(db, id);
   return { title: building?.name ?? "Propiedad" };
 }
 
@@ -40,9 +41,9 @@ export default async function BuildingDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const session = await requireUser(["OWNER", "ADMIN"]);
+  const { session, db } = await requireOrgUser(["OWNER", "ADMIN"]);
   const { id } = await params;
-  const building = await getBuildingDetail(id);
+  const building = await getBuildingDetail(db, id);
 
   if (!building) notFound();
 

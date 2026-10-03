@@ -1,10 +1,10 @@
-import { prisma } from "@/lib/prisma";
+import type { OrgDb } from "@/lib/db/scoped";
 import { toNumber } from "@/lib/format";
 
 /** Cobros de renta de un periodo, agrupados por propiedad. */
-export async function getPaymentsBoard(period: string) {
+export async function getPaymentsBoard(db: OrgDb, period: string) {
   const [charges, activeLeases] = await Promise.all([
-    prisma.rentCharge.findMany({
+    db.rentCharge.findMany({
       where: { period },
       orderBy: [
         { lease: { unit: { building: { name: "asc" } } } },
@@ -36,7 +36,7 @@ export async function getPaymentsBoard(period: string) {
         },
       },
     }),
-    prisma.lease.count({ where: { status: "ACTIVE" } }),
+    db.lease.count({ where: { status: "ACTIVE" } }),
   ]);
 
   const groups = new Map<

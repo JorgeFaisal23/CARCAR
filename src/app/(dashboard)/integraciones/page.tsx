@@ -13,9 +13,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { requireUser } from "@/lib/auth/session";
+import { requireOrgUser } from "@/lib/auth/session";
 import { canEdit } from "@/lib/permissions";
-import { prisma } from "@/lib/prisma";
 import { shortDate } from "@/lib/format";
 import { BOOKING_SOURCE_CLASSES } from "@/lib/labels";
 import { cn } from "@/lib/utils";
@@ -24,10 +23,10 @@ import { SyncButton } from "./sync-button";
 export const metadata: Metadata = { title: "Integraciones" };
 
 export default async function IntegrationsPage() {
-  const session = await requireUser(["OWNER", "ADMIN"]);
+  const { session, db } = await requireOrgUser(["OWNER", "ADMIN"]);
   const editable = canEdit(session.role);
 
-  const connections = await prisma.airbnbConnection.findMany({
+  const connections = await db.airbnbConnection.findMany({
     orderBy: { listingName: "asc" },
     select: {
       id: true,

@@ -1,12 +1,12 @@
-import { prisma } from "@/lib/prisma";
+import type { OrgDb } from "@/lib/db/scoped";
 import { toNumber, daysBetween, periodKey } from "@/lib/format";
 
 /** Listado de inquilinos con el estado de su contrato y de su último pago. */
-export async function getTenants() {
+export async function getTenants(db: OrgDb) {
   const now = new Date();
   const period = periodKey(now);
 
-  const tenants = await prisma.user.findMany({
+  const tenants = await db.user.findMany({
     where: { role: "TENANT" },
     orderBy: { name: "asc" },
     select: {
@@ -61,8 +61,8 @@ export async function getTenants() {
   });
 }
 
-export async function getTenantDetail(tenantId: string) {
-  const tenant = await prisma.user.findFirst({
+export async function getTenantDetail(db: OrgDb, tenantId: string) {
+  const tenant = await db.user.findFirst({
     where: { id: tenantId, role: "TENANT" },
     select: {
       id: true,
@@ -182,8 +182,8 @@ export async function getTenantDetail(tenantId: string) {
 }
 
 /** Unidades sin contrato activo, para asignar un inquilino nuevo. */
-export async function getAssignableUnits() {
-  const units = await prisma.unit.findMany({
+export async function getAssignableUnits(db: OrgDb) {
+  const units = await db.unit.findMany({
     where: {
       status: { in: ["AVAILABLE", "OCCUPIED"] },
       leases: { none: { status: "ACTIVE" } },

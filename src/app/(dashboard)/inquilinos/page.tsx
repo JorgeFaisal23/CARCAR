@@ -7,7 +7,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { ButtonLink } from "@/components/shared/button-link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { requireUser } from "@/lib/auth/session";
+import { requireOrgUser } from "@/lib/auth/session";
 import { canEdit } from "@/lib/permissions";
 import { getTenants } from "@/lib/queries/tenants";
 import { deadlineLabel, initials, money, shortDate } from "@/lib/format";
@@ -17,8 +17,8 @@ import { cn } from "@/lib/utils";
 export const metadata: Metadata = { title: "Inquilinos" };
 
 export default async function TenantsPage() {
-  const session = await requireUser(["OWNER", "ADMIN"]);
-  const tenants = await getTenants();
+  const { session, db } = await requireOrgUser(["OWNER", "ADMIN"]);
+  const tenants = await getTenants(db);
   const editable = canEdit(session.role);
 
   const withLease = tenants.filter((t) => t.hasLease).length;

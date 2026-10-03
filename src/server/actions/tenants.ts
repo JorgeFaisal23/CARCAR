@@ -4,9 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
-import { requireUserAction } from "@/lib/auth/session";
+import { requireOrgUserAction } from "@/lib/auth/session";
 import { logAction } from "@/server/actions/audit";
+import { isEmailInUse } from "@/lib/db/accounts";
+import { unitExists } from "@/lib/db/guards";
 import type { ActionResult } from "@/lib/action-result";
 
 /**
@@ -38,7 +39,7 @@ export async function createTenant(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  const session = await requireUserAction(["OWNER", "ADMIN"]);
+  const { session, orgId, db } = await requireOrgUserAction(["OWNER", "ADMIN"]);
 
   const parsed = tenantSchema.safeParse({
     name: formData.get("name"),
@@ -53,12 +54,9 @@ export async function createTenant(
     return { error: parsed.error.issues[0]?.message ?? "Revisa los datos." };
   }
 
-  const existing = await prisma.user.findUnique({
-    where: { email: parsed.data.email },
-    select: { id: true },
-  });
-  if (existing) {
-    return { error: "Ya existe un usuario con ese correo." };
+  // El correo es único en toda la plataforma, no solo en esta arrendadora.
+  if (await isEmailInUse(parsed.data.email)) {
+    return { error: "Ese correo ya está registrado. Usa otro." };
   }
 
   const unitId = String(formData.get("unitId") ?? "");
@@ -84,8 +82,12 @@ export async function createTenant(
       return { error: "El vencimiento debe ser posterior al inicio del contrato." };
     }
 
+    if (!(await unitExists(db, unitId))) {
+      return { error: "No se encontró la unidad." };
+    }
+
     // Una unidad no puede tener dos contratos vigentes a la vez.
-    const busy = await prisma.lease.findFirst({
+    const busy = await db.lease.findFirst({
       where: { unitId, status: "ACTIVE" },
       select: { id: true },
     });
@@ -101,39 +103,47 @@ export async function createTenant(
   // una puerta abierta a cualquier cuenta nueva.
   const passwordHash = await bcrypt.hash(parsed.data.password, 10);
 
-  const tenant = await prisma.user.create({
-    data: {
-      name: parsed.data.name,
-      email: parsed.data.email,
-      phone: parsed.data.phone,
-      documentId: parsed.data.documentId,
-      notes: parsed.data.notes,
-      role: "TENANT",
-      passwordHash,
-    },
-  });
-
-  if (leaseData) {
-    await prisma.lease.create({
+  // Perfil, contrato y estado de la unidad se guardan juntos: si algo falla
+  // no queda un inquilino a medias ni una unidad ocupada sin contrato.
+  const tenant = await db.$transaction(async (tx) => {
+    const created = await tx.user.create({
       data: {
-        unitId: leaseData.unitId,
-        tenantId: tenant.id,
-        startDate: new Date(leaseData.startDate),
-        endDate: new Date(leaseData.endDate),
-        rentAmount: leaseData.rentAmount,
-        depositAmount: leaseData.depositAmount ?? null,
-        paymentDay: leaseData.paymentDay,
-        status: "ACTIVE",
+        organizationId: orgId,
+        name: parsed.data.name,
+        email: parsed.data.email,
+        phone: parsed.data.phone,
+        documentId: parsed.data.documentId,
+        notes: parsed.data.notes,
+        role: "TENANT",
+        passwordHash,
       },
     });
 
-    await prisma.unit.update({
-      where: { id: leaseData.unitId },
-      data: { status: "OCCUPIED" },
-    });
-  }
+    if (leaseData) {
+      await tx.lease.create({
+        data: {
+          organizationId: orgId,
+          unitId: leaseData.unitId,
+          tenantId: created.id,
+          startDate: new Date(leaseData.startDate),
+          endDate: new Date(leaseData.endDate),
+          rentAmount: leaseData.rentAmount,
+          depositAmount: leaseData.depositAmount ?? null,
+          paymentDay: leaseData.paymentDay,
+          status: "ACTIVE",
+        },
+      });
 
-  await logAction(session.sub, "Alta de inquilino", "User", tenant.id, tenant.name);
+      await tx.unit.update({
+        where: { id: leaseData.unitId },
+        data: { status: "OCCUPIED" },
+      });
+    }
+
+    return created;
+  });
+
+  await logAction(db, session.sub, "Alta de inquilino", "User", tenant.id, tenant.name);
 
   revalidatePath("/inquilinos");
   revalidatePath("/edificios");
@@ -147,7 +157,7 @@ export async function updateTenant(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  const session = await requireUserAction(["OWNER", "ADMIN"]);
+  const { session, db } = await requireOrgUserAction(["OWNER", "ADMIN"]);
   const tenantId = String(formData.get("tenantId") ?? "");
   if (!tenantId) return { error: "No se identificó al inquilino." };
 
@@ -166,19 +176,17 @@ export async function updateTenant(
   // La acción se puede invocar directamente con cualquier id: sin esta
   // comprobación, alguien del equipo podría cambiar el correo del dueño y
   // quedarse con su cuenta.
-  const tenant = await prisma.user.findFirst({
+  const tenant = await db.user.findFirst({
     where: { id: tenantId, role: "TENANT" },
     select: { id: true },
   });
   if (!tenant) return { error: "No se encontró al inquilino." };
 
-  const clash = await prisma.user.findFirst({
-    where: { email: parsed.data.email, NOT: { id: tenantId } },
-    select: { id: true },
-  });
-  if (clash) return { error: "Ese correo ya lo usa otro usuario." };
+  if (await isEmailInUse(parsed.data.email, tenantId)) {
+    return { error: "Ese correo ya está registrado. Usa otro." };
+  }
 
-  await prisma.user.update({
+  await db.user.update({
     where: { id: tenantId },
     data: {
       name: parsed.data.name,
@@ -189,7 +197,7 @@ export async function updateTenant(
     },
   });
 
-  await logAction(session.sub, "Edición de inquilino", "User", tenantId, parsed.data.name);
+  await logAction(db, session.sub, "Edición de inquilino", "User", tenantId, parsed.data.name);
 
   revalidatePath(`/inquilinos/${tenantId}`);
   revalidatePath("/inquilinos");

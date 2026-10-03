@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import type { OrgDb } from "@/lib/db/scoped";
 import { periodKey, toNumber, daysBetween } from "@/lib/format";
 
 /**
@@ -8,13 +8,13 @@ import { periodKey, toNumber, daysBetween } from "@/lib/format";
 
 const DAYS_BEFORE_EXPIRY_WARNING = 60;
 
-export async function getDashboardData() {
+export async function getDashboardData(db: OrgDb) {
   const now = new Date();
   const period = periodKey(now);
 
   const [units, rentCharges, serviceCharges, leases, upcomingBookings, serviceAccounts] =
     await Promise.all([
-      prisma.unit.findMany({
+      db.unit.findMany({
         select: {
           id: true,
           code: true,
@@ -23,15 +23,15 @@ export async function getDashboardData() {
           building: { select: { id: true, name: true } },
         },
       }),
-      prisma.rentCharge.findMany({
+      db.rentCharge.findMany({
         where: { period },
         select: { amount: true, paidAmount: true, status: true },
       }),
-      prisma.serviceCharge.findMany({
+      db.serviceCharge.findMany({
         where: { period },
         select: { amount: true },
       }),
-      prisma.lease.findMany({
+      db.lease.findMany({
         where: { status: "ACTIVE" },
         select: {
           id: true,
@@ -43,7 +43,7 @@ export async function getDashboardData() {
         },
         orderBy: { endDate: "asc" },
       }),
-      prisma.booking.findMany({
+      db.booking.findMany({
         where: { checkIn: { gte: now }, status: "CONFIRMED" },
         select: {
           id: true,
@@ -59,7 +59,7 @@ export async function getDashboardData() {
         orderBy: { checkIn: "asc" },
         take: 6,
       }),
-      prisma.serviceAccount.count({ where: { active: true } }),
+      db.serviceAccount.count({ where: { active: true } }),
     ]);
 
   const totalUnits = units.length;

@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import type { OrgDb } from "@/lib/db/scoped";
 import { toNumber, periodKey, shiftPeriod, periodShortLabel } from "@/lib/format";
 
 /**
@@ -7,14 +7,14 @@ import { toNumber, periodKey, shiftPeriod, periodShortLabel } from "@/lib/format
  * Se calculan de verdad aunque la pantalla esté bloqueada: la vista previa
  * difuminada tiene que mostrar los números del negocio, no un relleno.
  */
-export async function getReportsData(months = 6) {
+export async function getReportsData(db: OrgDb, months = 6) {
   const current = periodKey(new Date());
   const periods = Array.from({ length: months }, (_, i) =>
     shiftPeriod(current, -(months - 1 - i)),
   );
 
   const [rentCharges, serviceCharges, buildings, bookings] = await Promise.all([
-    prisma.rentCharge.findMany({
+    db.rentCharge.findMany({
       where: { period: { in: periods } },
       select: {
         period: true,
@@ -30,7 +30,7 @@ export async function getReportsData(months = 6) {
         },
       },
     }),
-    prisma.serviceCharge.findMany({
+    db.serviceCharge.findMany({
       where: { period: { in: periods } },
       select: {
         period: true,
@@ -44,7 +44,7 @@ export async function getReportsData(months = 6) {
         },
       },
     }),
-    prisma.building.findMany({
+    db.building.findMany({
       select: {
         id: true,
         name: true,
@@ -52,7 +52,7 @@ export async function getReportsData(months = 6) {
       },
       orderBy: { name: "asc" },
     }),
-    prisma.booking.findMany({
+    db.booking.findMany({
       where: { status: { in: ["CONFIRMED", "COMPLETED"] } },
       select: { totalAmount: true, checkIn: true, source: true },
     }),

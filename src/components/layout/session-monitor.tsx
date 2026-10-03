@@ -6,7 +6,8 @@ import { verifySessionLiveness } from "@/app/login/actions";
 
 /**
  * Monitorea proactivamente si la sesión de este dispositivo sigue activa en la base de datos.
- * Si se inició sesión en otro dispositivo, redirige inmediatamente a /login?motivo=sesion_duplicada
+ * Si se inició sesión en otro dispositivo (o la cuenta o la arrendadora dejaron de estar activas),
+ * redirige de inmediato al acceso con el motivo
  * sin tener que esperar a que el usuario intente una acción o recargue.
  */
 export function SessionMonitor() {
@@ -20,9 +21,9 @@ export function SessionMonitor() {
       if (isCheckingRef.current || document.hidden) return;
       isCheckingRef.current = true;
       try {
-        const isAlive = await verifySessionLiveness();
-        if (!isAlive) {
-          router.replace("/login?motivo=sesion_duplicada");
+        const redirectTo = await verifySessionLiveness();
+        if (redirectTo) {
+          router.replace(redirectTo);
           router.refresh();
         }
       } catch {

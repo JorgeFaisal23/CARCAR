@@ -23,8 +23,8 @@ import {
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { getDashboardData } from "@/lib/queries/dashboard";
-import { requireUser } from "@/lib/auth/session";
-import { getOrganization } from "@/lib/org";
+import { requireOrgUser } from "@/lib/auth/session";
+import { requireCurrentOrg } from "@/lib/org";
 import { canEdit } from "@/lib/permissions";
 import { deadlineLabel, moneyCompact, money, periodLabel, shortDate } from "@/lib/format";
 import { BOOKING_SOURCE_LABELS } from "@/lib/labels";
@@ -32,8 +32,8 @@ import { BOOKING_SOURCE_LABELS } from "@/lib/labels";
 export const metadata: Metadata = { title: "Inicio" };
 
 export default async function DashboardPage() {
-  const session = await requireUser(["OWNER", "ADMIN", "VIEWER"]);
-  const [data, org] = await Promise.all([getDashboardData(), getOrganization()]);
+  const { session, db } = await requireOrgUser(["OWNER", "ADMIN", "VIEWER"]);
+  const [data, org] = await Promise.all([getDashboardData(db), requireCurrentOrg()]);
   const editable = canEdit(session.role);
 
   const firstName = session.name.split(" ")[0];

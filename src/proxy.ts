@@ -4,8 +4,13 @@ import { canAccessPath, homePathFor } from "@/lib/permissions";
 
 const PUBLIC_PATHS = ["/login"];
 
+/** Rutas que cualquiera puede abrir, con o sin sesión y sea cual sea su rol. */
+const ALWAYS_ALLOWED = ["/salir"];
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  if (ALWAYS_ALLOWED.includes(pathname)) return NextResponse.next();
 
   const session = await verifySession(
     request.cookies.get(SESSION_COOKIE)?.value,

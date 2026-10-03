@@ -4,7 +4,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { APP } from "@/lib/app";
 import { brandStyleSheet } from "@/lib/brand";
-import { getOrganization } from "@/lib/org";
+import { getCurrentBrand } from "@/lib/org";
 import "./globals.css";
 
 // Las tres fuentes se cargan siempre; el panel de marca solo decide a cuál
@@ -33,7 +33,7 @@ const sourceSans = Source_Sans_3({
  * nombre del producto no se mete en el título para no competir con la marca.
  */
 export async function generateMetadata(): Promise<Metadata> {
-  const org = await getOrganization();
+  const org = await getCurrentBrand();
   return {
     title: {
       default: org.brandName,
@@ -51,7 +51,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const org = await getOrganization();
+  const org = await getCurrentBrand();
   const brandCss = brandStyleSheet({
     primaryColor: org.primaryColor,
     radius: org.radius,

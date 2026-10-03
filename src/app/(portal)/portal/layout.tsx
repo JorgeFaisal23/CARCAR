@@ -2,8 +2,8 @@ import Link from "next/link";
 import { BrandLogo } from "@/components/shared/brand-logo";
 import { PortalNav } from "@/components/layout/portal-nav";
 import { AppSignature } from "@/components/shared/app-signature";
-import { requireUser } from "@/lib/auth/session";
-import { getOrganization } from "@/lib/org";
+import { requireOrgUser } from "@/lib/auth/session";
+import { requireCurrentOrg } from "@/lib/org";
 import { SessionMonitor } from "@/components/layout/session-monitor";
 
 /**
@@ -15,8 +15,8 @@ export default async function PortalLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await requireUser(["TENANT"]);
-  const org = await getOrganization();
+  const { session } = await requireOrgUser(["TENANT"]);
+  const org = await requireCurrentOrg();
 
   return (
     <div className="bg-muted/30 flex min-h-svh flex-col">

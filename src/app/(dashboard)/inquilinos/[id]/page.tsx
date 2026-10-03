@@ -32,7 +32,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { requireUser } from "@/lib/auth/session";
+import { requireOrgUser } from "@/lib/auth/session";
 import { canEdit } from "@/lib/permissions";
 import { getTenantDetail } from "@/lib/queries/tenants";
 import {
@@ -55,8 +55,9 @@ export async function generateMetadata({
 }: {
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
+  const { db } = await requireOrgUser(["OWNER", "ADMIN"]);
   const { id } = await params;
-  const tenant = await getTenantDetail(id);
+  const tenant = await getTenantDetail(db, id);
   return { title: tenant?.name ?? "Inquilino" };
 }
 
@@ -65,9 +66,9 @@ export default async function TenantDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const session = await requireUser(["OWNER", "ADMIN"]);
+  const { session, db } = await requireOrgUser(["OWNER", "ADMIN"]);
   const { id } = await params;
-  const tenant = await getTenantDetail(id);
+  const tenant = await getTenantDetail(db, id);
 
   if (!tenant) notFound();
 

@@ -5,8 +5,8 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
-import { requireUser } from "@/lib/auth/session";
-import { getOrganization } from "@/lib/org";
+import { requireOrgUser } from "@/lib/auth/session";
+import { requireCurrentOrg } from "@/lib/org";
 import { ROLE_LABELS } from "@/lib/labels";
 import { ReadOnlyNotice } from "@/components/layout/read-only-notice";
 import { SessionMonitor } from "@/components/layout/session-monitor";
@@ -16,8 +16,8 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await requireUser(["OWNER", "ADMIN", "VIEWER"]);
-  const org = await getOrganization();
+  const { session } = await requireOrgUser(["OWNER", "ADMIN", "VIEWER"]);
+  const org = await requireCurrentOrg();
 
   return (
     <SidebarProvider>

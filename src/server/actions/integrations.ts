@@ -1,8 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { prisma } from "@/lib/prisma";
-import { requireUserAction } from "@/lib/auth/session";
+import { requireOrgUserAction } from "@/lib/auth/session";
 import { logAction } from "@/server/actions/audit";
 import type { ActionResult } from "@/lib/action-result";
 
@@ -16,25 +15,26 @@ import type { ActionResult } from "@/lib/action-result";
 export async function syncAirbnbConnection(
   connectionId: string,
 ): Promise<ActionResult & { bookings?: number }> {
-  const session = await requireUserAction(["OWNER", "ADMIN"]);
+  const { session, db } = await requireOrgUserAction(["OWNER", "ADMIN"]);
 
-  const connection = await prisma.airbnbConnection.findUnique({
+  const connection = await db.airbnbConnection.findUnique({
     where: { id: connectionId },
     select: { id: true, unitId: true, listingName: true },
   });
   if (!connection) return { error: "No se encontró la conexión." };
 
   const [, bookings] = await Promise.all([
-    prisma.airbnbConnection.update({
+    db.airbnbConnection.update({
       where: { id: connectionId },
       data: { lastSyncedAt: new Date(), status: "CONNECTED" },
     }),
-    prisma.booking.count({
+    db.booking.count({
       where: { unitId: connection.unitId, source: "AIRBNB", status: "CONFIRMED" },
     }),
   ]);
 
   await logAction(
+    db,
     session.sub,
     "Sincronización de Airbnb (simulada)",
     "AirbnbConnection",
@@ -51,14 +51,15 @@ export async function syncAirbnbConnection(
 export async function syncAllConnections(): Promise<
   ActionResult & { count?: number }
 > {
-  const session = await requireUserAction(["OWNER", "ADMIN"]);
+  const { session, db } = await requireOrgUserAction(["OWNER", "ADMIN"]);
 
-  const result = await prisma.airbnbConnection.updateMany({
+  const result = await db.airbnbConnection.updateMany({
     where: { status: { not: "DISCONNECTED" } },
     data: { lastSyncedAt: new Date(), status: "CONNECTED" },
   });
 
   await logAction(
+    db,
     session.sub,
     "Sincronización general de Airbnb (simulada)",
     "AirbnbConnection",

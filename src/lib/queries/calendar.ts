@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import type { OrgDb } from "@/lib/db/scoped";
 import { toNumber, periodToDate } from "@/lib/format";
 
 /**
@@ -30,7 +30,7 @@ function daysInMonth(year: number, month: number) {
   return new Date(year, month + 1, 0).getDate();
 }
 
-export async function getCalendarData(period: string, buildingId?: string) {
+export async function getCalendarData(db: OrgDb, period: string, buildingId?: string) {
   const monthStart = periodToDate(period);
   const year = monthStart.getFullYear();
   const month = monthStart.getMonth();
@@ -38,11 +38,11 @@ export async function getCalendarData(period: string, buildingId?: string) {
   const monthEnd = new Date(year, month, totalDays, 23, 59, 59);
 
   const [buildings, units, leases, bookings] = await Promise.all([
-    prisma.building.findMany({
+    db.building.findMany({
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
-    prisma.unit.findMany({
+    db.unit.findMany({
       where: buildingId ? { buildingId } : undefined,
       orderBy: [{ building: { name: "asc" } }, { code: "asc" }],
       select: {
@@ -52,7 +52,7 @@ export async function getCalendarData(period: string, buildingId?: string) {
         building: { select: { id: true, name: true } },
       },
     }),
-    prisma.lease.findMany({
+    db.lease.findMany({
       where: {
         status: "ACTIVE",
         startDate: { lte: monthEnd },
@@ -68,7 +68,7 @@ export async function getCalendarData(period: string, buildingId?: string) {
         tenant: { select: { name: true } },
       },
     }),
-    prisma.booking.findMany({
+    db.booking.findMany({
       where: {
         status: { not: "CANCELLED" },
         checkIn: { lte: monthEnd },

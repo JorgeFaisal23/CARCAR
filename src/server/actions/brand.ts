@@ -2,8 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
-import { requireUserAction } from "@/lib/auth/session";
+import { requireOrgUserAction } from "@/lib/auth/session";
 import { logAction } from "@/server/actions/audit";
 import type { ActionResult } from "@/lib/action-result";
 
@@ -27,7 +26,7 @@ export async function updateBrand(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  const session = await requireUserAction(["OWNER"]);
+  const { session, orgId, db } = await requireOrgUserAction(["OWNER"]);
 
   const parsed = brandSchema.safeParse({
     brandName: formData.get("brandName"),
@@ -41,12 +40,6 @@ export async function updateBrand(
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Revisa los datos." };
   }
-
-  const org = await prisma.organization.findFirst({
-    orderBy: { createdAt: "asc" },
-    select: { id: true },
-  });
-  if (!org) return { error: "No hay una organización configurada." };
 
   // El logo llega como data URL desde el navegador; se valida el tamaño porque
   // va directo a una columna de texto.
@@ -65,8 +58,10 @@ export async function updateBrand(
     // Si no es data URL ni cadena vacía, se deja el logo actual sin tocar.
   }
 
-  await prisma.organization.update({
-    where: { id: org.id },
+  // El cliente con alcance solo deja actualizar la propia arrendadora y
+  // rechaza tocar plan, estado o slug: esos los administra la plataforma.
+  await db.organization.update({
+    where: { id: orgId },
     data: {
       brandName: parsed.data.brandName,
       primaryColor: parsed.data.primaryColor,
@@ -79,31 +74,15 @@ export async function updateBrand(
   });
 
   await logAction(
+    db,
     session.sub,
     "Actualización de marca",
     "Organization",
-    org.id,
+    orgId,
     parsed.data.brandName,
   );
 
   // La marca se inyecta en el layout raíz, así que hay que revalidar todo.
-  revalidatePath("/", "layout");
-  return { ok: true };
-}
-
-/** Cambia el plan. En la demo permite mostrar el antes y después de Premium. */
-export async function setPlan(plan: "FREE" | "PREMIUM"): Promise<ActionResult> {
-  const session = await requireUserAction(["OWNER"]);
-
-  const org = await prisma.organization.findFirst({
-    orderBy: { createdAt: "asc" },
-    select: { id: true },
-  });
-  if (!org) return { error: "No hay una organización configurada." };
-
-  await prisma.organization.update({ where: { id: org.id }, data: { plan } });
-  await logAction(session.sub, "Cambio de plan", "Organization", org.id, plan);
-
   revalidatePath("/", "layout");
   return { ok: true };
 }

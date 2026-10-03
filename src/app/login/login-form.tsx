@@ -20,6 +20,22 @@ const DEMO_ACCOUNTS: { email: string; role: Role }[] = [
 
 const DEMO_PASSWORD = "demo1234";
 
+/** Avisos para `?motivo=` (ver SessionProblem en src/lib/auth/session.ts). */
+const SESSION_NOTICES: Record<string, { title: string; text: string }> = {
+  sesion_duplicada: {
+    title: "Sesión cerrada",
+    text: "Tu sesión se cerró porque se inició sesión en otro dispositivo o navegador. Vuelve a ingresar para continuar aquí.",
+  },
+  cuenta_inactiva: {
+    title: "Sesión cerrada",
+    text: "Tu cuenta ya no está activa o tu sesión expiró. Si crees que es un error, contacta a tu administrador.",
+  },
+  organizacion_suspendida: {
+    title: "Acceso suspendido",
+    text: "El acceso de tu arrendadora está suspendido. Contacta al administrador de la plataforma.",
+  },
+};
+
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
@@ -46,10 +62,13 @@ export function LoginForm({
 
   return (
     <div className="space-y-6">
-      {motivo === "sesion_duplicada" ? (
-        <Callout tone="warning" icon={ShieldAlert} title="Sesión cerrada">
-          Tu sesión se cerró porque se inició sesión en otro dispositivo o
-          navegador. Vuelve a ingresar para continuar aquí.
+      {motivo && motivo in SESSION_NOTICES ? (
+        <Callout
+          tone="warning"
+          icon={ShieldAlert}
+          title={SESSION_NOTICES[motivo].title}
+        >
+          {SESSION_NOTICES[motivo].text}
         </Callout>
       ) : null}
 

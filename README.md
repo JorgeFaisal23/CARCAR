@@ -30,12 +30,42 @@ Contraseña para todas: **`demo1234`**. Con `DEMO_MODE=true` la pantalla de
 acceso muestra botones que llenan el formulario con cada perfil. En producción
 `DEMO_MODE` va apagado y esas cuentas no deben existir.
 
-| Correo | Rol | Qué puede hacer |
-|---|---|---|
-| `dueno@demo.mx` | Arrendador | Todo, incluida la marca y el plan |
-| `admin@demo.mx` | Administrativo | Propiedades, servicios, cobros e inquilinos |
-| `consulta@demo.mx` | Consulta | **Solo lectura**: resumen y calendario |
-| `inquilino@demo.mx` | Inquilino | Portal con su contrato, pagos y servicios |
+El seed crea dos arrendadoras para que se vea el aislamiento entre ellas, más
+la cuenta de la plataforma:
+
+| Correo | Arrendadora | Rol | Qué puede hacer |
+|---|---|---|---|
+| `super@demo.mx` | — | Superadministrador | Administra las arrendadoras (no ve sus datos) |
+| `dueno@demo.mx` | Rentas del Valle (`demo`, Premium) | Arrendador | Todo, incluida la marca y el equipo |
+| `admin@demo.mx` | Rentas del Valle | Administrativo | Propiedades, servicios, cobros e inquilinos |
+| `consulta@demo.mx` | Rentas del Valle | Consulta | **Solo lectura**: resumen y calendario |
+| `inquilino@demo.mx` | Rentas del Valle | Inquilino | Portal con su contrato, pagos y servicios |
+| `dueno2@demo.mx` | Casa Norte (`demo2`, gratuito) | Arrendador | Lo mismo, sobre sus propios datos |
+| `inquilino2@demo.mx` | Casa Norte | Inquilino | Portal |
+
+## Varias arrendadoras en la misma app
+
+Cada tabla con datos de una arrendadora lleva `organizationId`. Las páginas y
+las acciones nunca usan el cliente de Prisma directamente: piden la sesión con
+`requireOrgUser` / `requireOrgUserAction`, que devuelven `db`, un cliente
+limitado a la arrendadora de la sesión ([`src/lib/db/scoped.ts`](src/lib/db/scoped.ts)).
+Ese cliente impone el filtro en cada lectura, actualización y borrado, y
+estampa la arrendadora en cada alta; un id de otra arrendadora simplemente "no
+existe".
+
+Lo que el cliente no puede cubrir son las llaves foráneas que llegan del
+navegador en un alta (por ejemplo, el `unitId` de un contrato nuevo): las
+acciones las verifican antes con [`src/lib/db/guards.ts`](src/lib/db/guards.ts).
+
+Tres candados evitan que alguien se salte esto sin darse cuenta:
+
+- **ESLint** prohíbe importar `@/lib/prisma` fuera de los módulos de plataforma
+  (lista en `eslint.config.mjs`).
+- **Prueba de arquitectura** ([`src/test/architecture.test.ts`](src/test/architecture.test.ts)):
+  cada modelo nuevo debe clasificarse y cada server action debe exigir sesión.
+- **Prueba de aislamiento** ([`src/test/actions-isolation.int.test.ts`](src/test/actions-isolation.int.test.ts)):
+  llama a cada server action como usuario de una arrendadora con ids de otra y
+  comprueba que la otra queda intacta.
 
 ## Puesta en marcha
 
@@ -46,25 +76,52 @@ npm run db:seed     # carga los datos de demostración
 npm run dev         # http://localhost:3000
 ```
 
+`.env.local` gana sobre `.env` (en Next, en Prisma y en el seed). Úsalo para
+apuntar a tu base local de desarrollo y nunca a producción.
+
+### Base local de desarrollo
+
+Basta un PostgreSQL local. Con los binarios de PostgreSQL instalados se puede
+levantar un clúster propio, sin tocar el servicio del sistema:
+
+```bash
+initdb -D ~/pgdata/apprentas-dev -U postgres -A trust -E UTF8 --locale=C
+pg_ctl -D ~/pgdata/apprentas-dev -o "-p 5433 -c listen_addresses=localhost" -l ~/pgdata/apprentas-dev.log start
+createdb -h localhost -p 5433 -U postgres apprentas_dev
+createdb -h localhost -p 5433 -U postgres apprentas_test
+createdb -h localhost -p 5433 -U postgres apprentas_shadow
+```
+
+y en `.env.local` las URLs de `.env.example` (sección "Solo desarrollo").
+`-A trust` deja entrar sin contraseña: solo para un clúster que escucha en
+`localhost`.
+
 Variables de entorno (ver `.env.example`):
 
 | Variable | Para qué |
 |---|---|
-| `DATABASE_URL` | Conexión agrupada de Neon; la usa la app en ejecución |
-| `DIRECT_URL` | Conexión directa (sin `-pooler`); Prisma la necesita para crear o alterar tablas |
+| `DATABASE_URL` | Conexión que usa la app en ejecución |
+| `DIRECT_URL` | Conexión directa (sin pooler); Prisma la usa para migrar |
 | `AUTH_SECRET` | Clave con la que se firman las sesiones |
 | `NEXT_PUBLIC_APP_NAME` | Nombre del producto (placeholder `AppRentas`). También `NEXT_PUBLIC_APP_TAGLINE`, `NEXT_PUBLIC_APP_COLOR` y `NEXT_PUBLIC_APP_URL`. Se incrustan al compilar |
 | `DEMO_MODE` | `true` muestra las cuentas de prueba en el acceso. Nunca en producción |
+| `SHADOW_DATABASE_URL` | Solo desarrollo: base auxiliar de `migrate dev` |
+| `TEST_DATABASE_URL` | Solo desarrollo: base de las pruebas de integración |
 
 Otros comandos:
 
 ```bash
 npm run db:migrate  # crea una migración nueva tras editar schema.prisma
 npm run db:reset    # borra todo, reaplica migraciones y vuelve a sembrar
-npm test            # pruebas (Vitest)
+npm test            # pruebas unitarias (sin base de datos)
+npm run test:int    # pruebas de integración (TEST_DATABASE_URL)
 npm run db:studio   # explorador de la base de datos
 npm run build       # build de producción
 ```
+
+Las pruebas de integración no borran la base: aplican las migraciones con
+`migrate deploy`, crean arrendadoras con identificadores únicos y eliminan solo
+lo que crearon.
 
 ## Cómo está organizado
 
@@ -136,9 +193,9 @@ src/
   actualiza la marca de tiempo y refresca las reservas ya sembradas. El camino
   real (importar el enlace iCal del anuncio) y sus limitaciones están
   documentados en [`src/lib/airbnb/README.md`](src/lib/airbnb/README.md).
-- **Premium se puede encender y apagar** desde `/premium` con la cuenta del
-  arrendador, para enseñar el antes y el después. En producción ese cambio lo
-  dispararía el cobro.
+- **El plan lo cambia la plataforma**, no el arrendador: el seed deja a Rentas
+  del Valle en Premium y a Casa Norte en gratuito para enseñar ambos casos. El
+  panel del superadministrador (siguiente fase) lo cambiará por arrendadora.
 - **Las imágenes se guardan como data URL** en la base de datos: el logo de la
   marca y los comprobantes de pago. Antes de subirse, los comprobantes se
   reescalan y recomprimen a JPEG en el navegador

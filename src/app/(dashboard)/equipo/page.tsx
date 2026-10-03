@@ -12,18 +12,17 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { requireUser } from "@/lib/auth/session";
-import { prisma } from "@/lib/prisma";
+import { requireOrgUser } from "@/lib/auth/session";
 import { initials, shortDate } from "@/lib/format";
 import { ROLE_DESCRIPTIONS, ROLE_LABELS } from "@/lib/labels";
 
 export const metadata: Metadata = { title: "Equipo" };
 
 export default async function TeamPage() {
-  await requireUser(["OWNER", "ADMIN"]);
+  const { db } = await requireOrgUser(["OWNER", "ADMIN"]);
 
   const [staff, logs] = await Promise.all([
-    prisma.user.findMany({
+    db.user.findMany({
       where: { role: { in: ["OWNER", "ADMIN", "VIEWER"] } },
       orderBy: { createdAt: "asc" },
       select: {
@@ -35,7 +34,7 @@ export default async function TeamPage() {
         createdAt: true,
       },
     }),
-    prisma.auditLog.findMany({
+    db.auditLog.findMany({
       orderBy: { createdAt: "desc" },
       take: 12,
       select: {

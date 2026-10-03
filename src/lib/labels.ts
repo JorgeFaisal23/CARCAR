@@ -45,6 +45,7 @@ export const TONE_TEXT: Record<Tone, string> = {
 // ------------------------------------------------------------------ roles
 
 export const ROLE_LABELS: Record<Role, string> = {
+  SUPERADMIN: "Superadministrador",
   OWNER: "Arrendador",
   ADMIN: "Administrativo",
   VIEWER: "Consulta",
@@ -52,7 +53,8 @@ export const ROLE_LABELS: Record<Role, string> = {
 };
 
 export const ROLE_DESCRIPTIONS: Record<Role, string> = {
-  OWNER: "Acceso total, incluida la marca y el plan",
+  SUPERADMIN: "Administra las arrendadoras de la plataforma",
+  OWNER: "Acceso total, incluida la marca y el equipo",
   ADMIN: "Gestiona propiedades, servicios y cobros",
   VIEWER: "Solo puede consultar el calendario",
   TENANT: "Entra al portal a ver su contrato y sus pagos",

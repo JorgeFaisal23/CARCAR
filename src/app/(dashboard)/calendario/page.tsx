@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { requireUser } from "@/lib/auth/session";
+import { requireOrgUser } from "@/lib/auth/session";
 import { getCalendarData } from "@/lib/queries/calendar";
 import { periodKey } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -30,11 +30,11 @@ export default async function CalendarPage({
 }: {
   searchParams: Promise<{ mes?: string; edificio?: string }>;
 }) {
-  await requireUser(["OWNER", "ADMIN", "VIEWER"]);
+  const { db } = await requireOrgUser(["OWNER", "ADMIN", "VIEWER"]);
   const { mes, edificio } = await searchParams;
 
   const period = mes && PERIOD_PATTERN.test(mes) ? mes : periodKey(new Date());
-  const data = await getCalendarData(period, edificio || undefined);
+  const data = await getCalendarData(db, period, edificio || undefined);
 
   return (
     <>

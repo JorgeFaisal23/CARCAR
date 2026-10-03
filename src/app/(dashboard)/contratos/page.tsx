@@ -11,8 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { requireUser } from "@/lib/auth/session";
-import { prisma } from "@/lib/prisma";
+import { requireOrgUser } from "@/lib/auth/session";
 import { toNumber, longDate, money } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Contratos" };
@@ -36,9 +35,9 @@ const TEMPLATES = [
 ];
 
 export default async function ContractsPage() {
-  await requireUser(["OWNER", "ADMIN"]);
+  const { db } = await requireOrgUser(["OWNER", "ADMIN"]);
 
-  const leases = await prisma.lease.findMany({
+  const leases = await db.lease.findMany({
     where: { status: "ACTIVE" },
     orderBy: { startDate: "desc" },
     take: 8,

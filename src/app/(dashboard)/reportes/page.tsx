@@ -21,8 +21,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { requireUser } from "@/lib/auth/session";
-import { getOrganization } from "@/lib/org";
+import { requireOrgUser } from "@/lib/auth/session";
+import { requireCurrentOrg } from "@/lib/org";
 import { chartPalette } from "@/lib/brand";
 import { getReportsData } from "@/lib/queries/reports";
 import { moneyCompact } from "@/lib/format";
@@ -35,8 +35,8 @@ import {
 export const metadata: Metadata = { title: "Reportes" };
 
 export default async function ReportsPage() {
-  await requireUser(["OWNER", "ADMIN"]);
-  const [data, org] = await Promise.all([getReportsData(), getOrganization()]);
+  const { db } = await requireOrgUser(["OWNER", "ADMIN"]);
+  const [data, org] = await Promise.all([getReportsData(db), requireCurrentOrg()]);
   // Colores concretos derivados de la marca: Recharts no resuelve var() en los
   // atributos del SVG.
   const colors = chartPalette(org.primaryColor);

@@ -4,7 +4,13 @@ import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { createSession, destroySession, getSession, checkSessionActive } from "@/lib/auth/session";
+import {
+  checkSessionProblem,
+  createSession,
+  destroySession,
+  getSession,
+  loginPathFor,
+} from "@/lib/auth/session";
 import { safeRedirect } from "@/lib/redirect";
 
 const loginSchema = z.object({
@@ -14,6 +20,19 @@ const loginSchema = z.object({
 });
 
 export type LoginState = { error?: string };
+
+const INVALID = "Correo o contraseña incorrectos.";
+
+/**
+ * Hash señuelo: cuando el correo no existe se compara contra él, para que la
+ * respuesta tarde lo mismo que con una contraseña incorrecta y el tiempo no
+ * delate qué correos están registrados.
+ */
+let dummyHash: string | null = null;
+function getDummyHash() {
+  dummyHash ??= bcrypt.hashSync(crypto.randomUUID(), 10);
+  return dummyHash;
+}
 
 export async function login(
   _prev: LoginState,
@@ -30,16 +49,33 @@ export async function login(
   }
 
   const { email, password, redirigir } = parsed.data;
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = await prisma.user.findUnique({
+    where: { email },
+    include: { organization: { select: { slug: true, status: true } } },
+  });
 
-  // Mismo mensaje para usuario inexistente y contraseña incorrecta: no vale la
-  // pena revelar cuáles correos existen.
-  if (!user || !user.active || !bcrypt.compareSync(password, user.passwordHash)) {
-    return { error: "Correo o contraseña incorrectos." };
+  const passwordOk = await bcrypt.compare(
+    password,
+    user?.passwordHash ?? getDummyHash(),
+  );
+
+  // Mismo mensaje para usuario inexistente, inactivo y contraseña incorrecta:
+  // no vale la pena revelar cuáles correos existen.
+  if (!user || !user.active || !passwordOk) {
+    return { error: INVALID };
   }
 
-  // Generamos un identificador único para esta sesión.
-  // Al persistirlo en la base de datos, cualquier sesión previa queda invalidada.
+  // Solo después de comprobar la contraseña se dice que la arrendadora está
+  // suspendida: quien la conoce ya demostró que la cuenta es suya.
+  if (user.organization && user.organization.status !== "ACTIVE") {
+    return {
+      error:
+        "El acceso de tu arrendadora está suspendido. Contacta al administrador de la plataforma.",
+    };
+  }
+
+  // Un identificador por sesión: al guardarlo, cualquier sesión previa de este
+  // usuario queda invalidada (una sesión activa por persona).
   const sessionId = crypto.randomUUID();
   await prisma.user.update({
     where: { id: user.id },
@@ -52,6 +88,8 @@ export async function login(
     name: user.name,
     role: user.role,
     sessionId,
+    orgId: user.organizationId,
+    orgSlug: user.organization?.slug ?? null,
   });
 
   redirect(safeRedirect(redirigir, user.role));
@@ -60,8 +98,8 @@ export async function login(
 export async function logout() {
   const session = await getSession();
   if (session) {
-    // Solo borramos el registro de sesión si sigue perteneciendo a este dispositivo,
-    // evitando sobreescribir si ya inició sesión en otro lado.
+    // Solo se borra el registro de sesión si sigue perteneciendo a este
+    // dispositivo; si ya entró en otro lado, esa sesión se respeta.
     await prisma.user.updateMany({
       where: {
         id: session.sub,
@@ -71,9 +109,18 @@ export async function logout() {
     });
   }
   await destroySession();
-  redirect("/login");
+  redirect(loginPathFor(session?.orgSlug));
 }
 
-export async function verifySessionLiveness(): Promise<boolean> {
-  return checkSessionActive();
+/**
+ * Para el monitor de sesión en cliente. Devuelve a dónde mandar al usuario si
+ * su sesión ya no vale, o null si sigue activa.
+ */
+export async function verifySessionLiveness(): Promise<string | null> {
+  const session = await getSession();
+  const problem = await checkSessionProblem();
+  if (!problem) return null;
+
+  const path = loginPathFor(session?.orgSlug);
+  return problem === "sin_sesion" ? path : `${path}?motivo=${problem}`;
 }

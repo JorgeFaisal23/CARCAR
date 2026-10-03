@@ -19,10 +19,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { APP } from "@/lib/app";
-import { requireUser } from "@/lib/auth/session";
-import { getOrganization } from "@/lib/org";
+import { requireOrgUser } from "@/lib/auth/session";
+import { requireCurrentOrg } from "@/lib/org";
 import { cn } from "@/lib/utils";
-import { PlanSwitch } from "./plan-switch";
 
 export const metadata: Metadata = { title: "Planes" };
 
@@ -69,8 +68,8 @@ const FEATURES: { group: string; items: Feature[] }[] = [
 ];
 
 export default async function PremiumPage() {
-  const session = await requireUser(["OWNER", "ADMIN"]);
-  const org = await getOrganization();
+  const { session } = await requireOrgUser(["OWNER", "ADMIN"]);
+  const org = await requireCurrentOrg();
   const isPremium = org.plan === "PREMIUM";
 
   return (
@@ -78,18 +77,14 @@ export default async function PremiumPage() {
       <PageHeader
         title={`Planes de ${APP.name}`}
         description={`El plan es de tu cuenta en ${APP.name} y cubre todas tus propiedades. Empieza gratis y activa Premium cuando quieras automatizar el seguimiento y medir la rentabilidad.`}
-        action={
-          session.role === "OWNER" ? <PlanSwitch isPremium={isPremium} /> : null
-        }
       />
 
       {session.role === "OWNER" ? (
         <div className="flex gap-3 rounded-lg border border-dashed p-4 text-sm">
           <Info className="text-muted-foreground mt-0.5 size-4 shrink-0" aria-hidden />
           <p className="text-muted-foreground text-pretty">
-            En esta demostración puedes encender y apagar Premium con el botón de
-            arriba para ver cómo se desbloquean las secciones. En producción, el
-            cambio de plan lo dispararía el cobro.
+            El plan lo administra {APP.name}. Para cambiarlo, contacta al
+            administrador de la plataforma.
           </p>
         </div>
       ) : null}

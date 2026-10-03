@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent } from "@/components/ui/card";
-import { requireUser } from "@/lib/auth/session";
+import { requireOrgUser } from "@/lib/auth/session";
 import { getAssignableUnits } from "@/lib/queries/tenants";
 import { NewTenantForm } from "./new-tenant-form";
 
@@ -14,9 +14,9 @@ export default async function NewTenantPage({
 }: {
   searchParams: Promise<{ unidad?: string }>;
 }) {
-  await requireUser(["OWNER", "ADMIN"]);
+  const { db } = await requireOrgUser(["OWNER", "ADMIN"]);
   const { unidad } = await searchParams;
-  const units = await getAssignableUnits();
+  const units = await getAssignableUnits(db);
 
   return (
     <>

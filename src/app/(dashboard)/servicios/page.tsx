@@ -22,7 +22,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { requireUser } from "@/lib/auth/session";
+import { requireOrgUser } from "@/lib/auth/session";
 import { canEdit } from "@/lib/permissions";
 import { getServicesBoard } from "@/lib/queries/services";
 import { money, moneyCompact, periodKey, periodLabel, recentPeriods } from "@/lib/format";
@@ -37,13 +37,13 @@ export default async function ServicesPage({
 }: {
   searchParams: Promise<{ mes?: string }>;
 }) {
-  const session = await requireUser(["OWNER", "ADMIN"]);
+  const { session, db } = await requireOrgUser(["OWNER", "ADMIN"]);
   const { mes } = await searchParams;
 
   const periods = recentPeriods(12);
   const period = mes && periods.includes(mes) ? mes : periodKey(new Date());
 
-  const board = await getServicesBoard(period);
+  const board = await getServicesBoard(db, period);
   const editable = canEdit(session.role);
 
   const difference = board.grandTotal - board.previousTotal;

@@ -14,7 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { requireUser } from "@/lib/auth/session";
+import { requireOrgUser } from "@/lib/auth/session";
 import { canEdit } from "@/lib/permissions";
 import { getPaymentsBoard } from "@/lib/queries/payments";
 import {
@@ -36,13 +36,13 @@ export default async function PaymentsPage({
 }: {
   searchParams: Promise<{ mes?: string }>;
 }) {
-  const session = await requireUser(["OWNER", "ADMIN"]);
+  const { session, db } = await requireOrgUser(["OWNER", "ADMIN"]);
   const { mes } = await searchParams;
 
   const periods = recentPeriods(12);
   const period = mes && periods.includes(mes) ? mes : periodKey(new Date());
 
-  const board = await getPaymentsBoard(period);
+  const board = await getPaymentsBoard(db, period);
   const editable = canEdit(session.role);
 
   const progress =

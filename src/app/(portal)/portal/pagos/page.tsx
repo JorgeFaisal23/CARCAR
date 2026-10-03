@@ -11,7 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { requireUser } from "@/lib/auth/session";
+import { requireOrgUser } from "@/lib/auth/session";
 import { getPortalData } from "@/lib/queries/portal";
 import { money, periodLabel, shortDate } from "@/lib/format";
 import { CHARGE_STATUS_LABELS, CHARGE_STATUS_TONES } from "@/lib/labels";
@@ -20,8 +20,8 @@ import { ReceiptViewer } from "@/components/payments/receipt-viewer";
 export const metadata: Metadata = { title: "Mis pagos" };
 
 export default async function PortalPaymentsPage() {
-  const session = await requireUser(["TENANT"]);
-  const data = await getPortalData(session.sub);
+  const { session, db } = await requireOrgUser(["TENANT"]);
+  const data = await getPortalData(db, session.sub);
 
   const paid = data.charges.filter((c) => c.status === "PAID");
 

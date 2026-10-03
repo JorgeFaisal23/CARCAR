@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import type { OrgDb } from "@/lib/db/scoped";
 import { toNumber, periodKey } from "@/lib/format";
 
 /**
@@ -7,11 +7,11 @@ import { toNumber, periodKey } from "@/lib/format";
  * serialización.
  */
 
-export async function getBuildingsOverview() {
+export async function getBuildingsOverview(db: OrgDb) {
   const now = new Date();
   const period = periodKey(now);
 
-  const buildings = await prisma.building.findMany({
+  const buildings = await db.building.findMany({
     orderBy: { name: "asc" },
     include: {
       units: {
@@ -29,7 +29,7 @@ export async function getBuildingsOverview() {
 
   // El gasto en servicios de un edificio incluye lo facturado a nivel edificio
   // más lo de cada una de sus unidades.
-  const unitCharges = await prisma.serviceCharge.findMany({
+  const unitCharges = await db.serviceCharge.findMany({
     where: { period, serviceAccount: { scope: "UNIT" } },
     select: {
       amount: true,
@@ -80,10 +80,10 @@ export async function getBuildingsOverview() {
   });
 }
 
-export async function getBuildingDetail(buildingId: string) {
+export async function getBuildingDetail(db: OrgDb, buildingId: string) {
   const now = new Date();
 
-  const building = await prisma.building.findUnique({
+  const building = await db.building.findUnique({
     where: { id: buildingId },
     include: {
       serviceAccounts: {
@@ -147,10 +147,10 @@ export async function getBuildingDetail(buildingId: string) {
   };
 }
 
-export async function getUnitDetail(unitId: string) {
+export async function getUnitDetail(db: OrgDb, unitId: string) {
   const now = new Date();
 
-  const unit = await prisma.unit.findUnique({
+  const unit = await db.unit.findUnique({
     where: { id: unitId },
     include: {
       building: {
@@ -263,8 +263,8 @@ export async function getUnitDetail(unitId: string) {
   };
 }
 
-export async function getBuildingsForSelect() {
-  return prisma.building.findMany({
+export async function getBuildingsForSelect(db: OrgDb) {
+  return db.building.findMany({
     select: { id: true, name: true },
     orderBy: { name: "asc" },
   });

@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import type { OrgDb } from "@/lib/db/scoped";
 import { toNumber, shiftPeriod } from "@/lib/format";
 import { allocate } from "@/lib/services/allocation";
 import type { ServiceType } from "@/generated/prisma/enums";
@@ -20,11 +20,11 @@ export type ServiceCell = {
   includedInRent: boolean;
 };
 
-export async function getServicesBoard(period: string) {
+export async function getServicesBoard(db: OrgDb, period: string) {
   const previousPeriod = shiftPeriod(period, -1);
 
   const [buildings, previousCharges] = await Promise.all([
-    prisma.building.findMany({
+    db.building.findMany({
       orderBy: { name: "asc" },
       include: {
         serviceAccounts: {
@@ -44,7 +44,7 @@ export async function getServicesBoard(period: string) {
         },
       },
     }),
-    prisma.serviceCharge.findMany({
+    db.serviceCharge.findMany({
       where: { period: previousPeriod },
       select: { amount: true },
     }),

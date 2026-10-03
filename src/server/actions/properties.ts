@@ -3,9 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
-import { requireUserAction } from "@/lib/auth/session";
+import { requireOrgUserAction } from "@/lib/auth/session";
 import { logAction } from "@/server/actions/audit";
+import { buildingExists, unitExists } from "@/lib/db/guards";
 import type { ActionResult } from "@/lib/action-result";
 
 
@@ -22,7 +22,7 @@ export async function createBuilding(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  const session = await requireUserAction(["OWNER", "ADMIN"]);
+  const { session, orgId, db } = await requireOrgUserAction(["OWNER", "ADMIN"]);
 
   const parsed = buildingSchema.safeParse({
     name: formData.get("name"),
@@ -35,8 +35,10 @@ export async function createBuilding(
     return { error: parsed.error.issues[0]?.message ?? "Revisa los datos." };
   }
 
-  const building = await prisma.building.create({ data: parsed.data });
-  await logAction(session.sub, "Alta de propiedad", "Building", building.id, building.name);
+  const building = await db.building.create({
+    data: { ...parsed.data, organizationId: orgId },
+  });
+  await logAction(db, session.sub, "Alta de propiedad", "Building", building.id, building.name);
 
   revalidatePath("/edificios");
   revalidatePath("/dashboard");
@@ -79,16 +81,20 @@ export async function createUnit(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  const session = await requireUserAction(["OWNER", "ADMIN"]);
+  const { session, orgId, db } = await requireOrgUserAction(["OWNER", "ADMIN"]);
   const parsed = unitSchema.safeParse(readUnitForm(formData));
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Revisa los datos." };
   }
 
+  if (!(await buildingExists(db, parsed.data.buildingId))) {
+    return { error: "No se encontró la propiedad." };
+  }
+
   // El identificador debe ser único dentro del edificio: dos "101" en el mismo
   // inmueble harían imposible saber de cuál se habla.
-  const duplicate = await prisma.unit.findFirst({
+  const duplicate = await db.unit.findFirst({
     where: { buildingId: parsed.data.buildingId, code: parsed.data.code },
     select: { id: true },
   });
@@ -98,8 +104,10 @@ export async function createUnit(
     };
   }
 
-  const unit = await prisma.unit.create({ data: parsed.data });
-  await logAction(session.sub, "Alta de unidad", "Unit", unit.id, unit.code);
+  const unit = await db.unit.create({
+    data: { ...parsed.data, organizationId: orgId },
+  });
+  await logAction(db, session.sub, "Alta de unidad", "Unit", unit.id, unit.code);
 
   revalidatePath("/edificios");
   revalidatePath(`/edificios/${parsed.data.buildingId}`);
@@ -111,7 +119,7 @@ export async function updateUnit(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  const session = await requireUserAction(["OWNER", "ADMIN"]);
+  const { session, db } = await requireOrgUserAction(["OWNER", "ADMIN"]);
   const unitId = String(formData.get("unitId") ?? "");
   if (!unitId) return { error: "No se identificó la unidad." };
 
@@ -120,7 +128,15 @@ export async function updateUnit(
     return { error: parsed.error.issues[0]?.message ?? "Revisa los datos." };
   }
 
-  const duplicate = await prisma.unit.findFirst({
+  // La unidad y la propiedad a la que se mueve deben ser de la arrendadora.
+  const [unitOk, buildingOk] = await Promise.all([
+    unitExists(db, unitId),
+    buildingExists(db, parsed.data.buildingId),
+  ]);
+  if (!unitOk) return { error: "No se encontró la unidad." };
+  if (!buildingOk) return { error: "No se encontró la propiedad." };
+
+  const duplicate = await db.unit.findFirst({
     where: {
       buildingId: parsed.data.buildingId,
       code: parsed.data.code,
@@ -134,8 +150,8 @@ export async function updateUnit(
     };
   }
 
-  await prisma.unit.update({ where: { id: unitId }, data: parsed.data });
-  await logAction(session.sub, "Edición de unidad", "Unit", unitId, parsed.data.code);
+  await db.unit.update({ where: { id: unitId }, data: parsed.data });
+  await logAction(db, session.sub, "Edición de unidad", "Unit", unitId, parsed.data.code);
 
   revalidatePath(`/unidades/${unitId}`);
   revalidatePath(`/edificios/${parsed.data.buildingId}`);
@@ -156,7 +172,7 @@ export async function updateServiceAccount(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  const session = await requireUserAction(["OWNER", "ADMIN"]);
+  const { session, db } = await requireOrgUserAction(["OWNER", "ADMIN"]);
   const accountId = String(formData.get("accountId") ?? "");
   if (!accountId) return { error: "No se identificó el servicio." };
 
@@ -170,7 +186,13 @@ export async function updateServiceAccount(
     return { error: parsed.error.issues[0]?.message ?? "Revisa los datos." };
   }
 
-  const account = await prisma.serviceAccount.update({
+  const existing = await db.serviceAccount.findUnique({
+    where: { id: accountId },
+    select: { id: true },
+  });
+  if (!existing) return { error: "No se encontró el servicio." };
+
+  const account = await db.serviceAccount.update({
     where: { id: accountId },
     data: {
       includedInRent: parsed.data.includedInRent,
@@ -180,7 +202,7 @@ export async function updateServiceAccount(
     select: { unitId: true, buildingId: true, type: true },
   });
 
-  await logAction(session.sub, "Edición de servicio", "ServiceAccount", accountId, account.type);
+  await logAction(db, session.sub, "Edición de servicio", "ServiceAccount", accountId, account.type);
 
   if (account.unitId) revalidatePath(`/unidades/${account.unitId}`);
   if (account.buildingId) revalidatePath(`/edificios/${account.buildingId}`);
@@ -193,7 +215,7 @@ export async function createUnitServiceAccount(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
-  const session = await requireUserAction(["OWNER", "ADMIN"]);
+  const { session, orgId, db } = await requireOrgUserAction(["OWNER", "ADMIN"]);
 
   const schema = z.object({
     unitId: z.string().min(1),
@@ -215,7 +237,11 @@ export async function createUnitServiceAccount(
     return { error: "Elige el tipo de servicio." };
   }
 
-  const exists = await prisma.serviceAccount.findFirst({
+  if (!(await unitExists(db, parsed.data.unitId))) {
+    return { error: "No se encontró la unidad." };
+  }
+
+  const exists = await db.serviceAccount.findFirst({
     where: { unitId: parsed.data.unitId, type: parsed.data.type },
     select: { id: true },
   });
@@ -223,8 +249,9 @@ export async function createUnitServiceAccount(
     return { error: "Esta unidad ya tiene registrado ese servicio." };
   }
 
-  await prisma.serviceAccount.create({
+  await db.serviceAccount.create({
     data: {
+      organizationId: orgId,
       scope: "UNIT",
       unitId: parsed.data.unitId,
       type: parsed.data.type,
@@ -234,7 +261,7 @@ export async function createUnitServiceAccount(
     },
   });
 
-  await logAction(session.sub, "Alta de servicio", "ServiceAccount", parsed.data.unitId, parsed.data.type);
+  await logAction(db, session.sub, "Alta de servicio", "ServiceAccount", parsed.data.unitId, parsed.data.type);
 
   revalidatePath(`/unidades/${parsed.data.unitId}`);
   revalidatePath("/servicios");

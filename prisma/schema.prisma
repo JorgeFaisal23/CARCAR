@@ -1,5 +1,12 @@
 // Esquema de la plataforma de gestión de rentas.
 // Jerarquía: Organization -> Building -> Unit -> (Lease | Booking)
+//
+// Multi-arrendador: cada tabla con datos de una arrendadora lleva
+// `organizationId`, aunque pudiera deducirse de su padre. Así cada consulta se
+// filtra con una sola columna indexada y el cliente con alcance
+// (src/lib/db/scoped.ts) puede imponer el filtro en todas las operaciones.
+// Regla: un hijo siempre pertenece a la misma arrendadora que su padre; las
+// acciones lo garantizan verificando cada id con el cliente con alcance.
 
 generator client {
   provider = "prisma-client"
@@ -23,53 +30,81 @@ enum BorderRadius {
   ROUND
 }
 
-/// Fila única. Guarda el plan (muro de pago) y la identidad de marca editable
-/// desde /configuracion/marca. Los colores se guardan en hex y se convierten a
-/// tokens CSS en src/lib/brand.ts.
+enum OrgStatus {
+  ACTIVE
+  SUSPENDED // sus usuarios no pueden entrar; los datos se conservan
+}
+
+/// Una arrendadora (cliente de la plataforma). Guarda el plan (muro de pago) y
+/// la identidad de marca editable desde /configuracion/marca. Los colores se
+/// guardan en hex y se convierten a tokens CSS en src/lib/brand.ts.
+/// Nunca se borra: se suspende.
 model Organization {
   id                 String       @id @default(cuid())
+  /// Identificador público en las URLs: /a/{slug}/login.
+  slug               String       @unique
   name               String
+  status             OrgStatus    @default(ACTIVE)
   plan               Plan         @default(FREE)
   brandName          String       @default("Rentas")
-  logoUrl            String? // data URL en la demo; migrar a blob storage en producción
+  logoUrl            String? // data URL por ahora; migrar a almacenamiento de archivos
   primaryColor       String       @default("#0F766E")
   radius             BorderRadius @default(SOFT)
   fontFamily         String       @default("Inter")
   loginBackgroundUrl String?
   contactEmail       String?
   contactPhone       String?
+  /// Última vez que corrió el barrido de vencimientos (src/lib/sweep.ts).
+  lastSweepAt        DateTime?
   createdAt          DateTime     @default(now())
   updatedAt          DateTime     @updatedAt
+
+  users             User[]
+  buildings         Building[]
+  units             Unit[]
+  serviceAccounts   ServiceAccount[]
+  serviceCharges    ServiceCharge[]
+  leases            Lease[]
+  rentCharges       RentCharge[]
+  bookings          Booking[]
+  airbnbConnections AirbnbConnection[]
+  auditLogs         AuditLog[]
 }
 
 // ---------------------------------------------------------------- Usuarios
 
 enum Role {
+  SUPERADMIN // operador de la plataforma: administra las arrendadoras, no sus datos
   OWNER // arrendador
   ADMIN // personal administrativo
   VIEWER // solo lectura: consulta del calendario
   TENANT // inquilino o huésped
 }
 
+/// El correo es único en toda la plataforma: el acceso genérico /login sirve
+/// para cualquiera y el acceso con marca rechaza a usuarios de otra arrendadora.
+/// `organizationId` es nulo solo para SUPERADMIN (lo impone un CHECK en SQL).
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  name         String
-  phone        String?
-  documentId   String? // identificación oficial
-  role         Role     @default(TENANT)
-  active       Boolean  @default(true)
+  id               String        @id @default(cuid())
+  organizationId   String?
+  organization     Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  email            String        @unique
+  passwordHash     String
+  name             String
+  phone            String?
+  documentId       String? // identificación oficial
+  role             Role          @default(TENANT)
+  active           Boolean       @default(true)
   currentSessionId String?
-  notes        String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  notes            String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 
   leases    Lease[]
   bookings  Booking[]
   auditLogs AuditLog[]
 
-  @@index([role])
+  @@index([organizationId, role])
 }
 
 // ---------------------------------------------------------------- Propiedades
@@ -89,34 +124,40 @@ enum UnitStatus {
 }
 
 model Building {
-  id        String   @id @default(cuid())
-  name      String
-  address   String
-  city      String?
-  notes     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  name           String
+  address        String
+  city           String?
+  notes          String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   units           Unit[]
   serviceAccounts ServiceAccount[]
+
+  @@index([organizationId])
 }
 
 model Unit {
-  id          String     @id @default(cuid())
-  buildingId  String
-  building    Building   @relation(fields: [buildingId], references: [id], onDelete: Cascade)
-  code        String // "101", "A-2"
-  name        String?
-  type        UnitType   @default(ROOM)
-  status      UnitStatus @default(AVAILABLE)
-  floor       Int?
-  bedrooms    Int        @default(1)
-  bathrooms   Int        @default(1)
-  sizeM2      Float?
-  baseRent    Decimal    @db.Decimal(12, 2)
-  description String?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  buildingId     String
+  building       Building     @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  code           String // "101", "A-2"
+  name           String?
+  type           UnitType     @default(ROOM)
+  status         UnitStatus   @default(AVAILABLE)
+  floor          Int?
+  bedrooms       Int          @default(1)
+  bathrooms      Int          @default(1)
+  sizeM2         Float?
+  baseRent       Decimal      @db.Decimal(12, 2)
+  description    String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   leases           Lease[]
   bookings         Booking[]
@@ -125,7 +166,7 @@ model Unit {
 
   @@unique([buildingId, code])
   @@index([buildingId])
-  @@index([status])
+  @@index([organizationId, status])
 }
 
 // ---------------------------------------------------------------- Servicios
@@ -155,6 +196,8 @@ enum SplitMode {
 /// unidad. `includedInRent` es el indicador Sí/No del requisito 1.
 model ServiceAccount {
   id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   type           ServiceType
   scope          ServiceScope
   buildingId     String?
@@ -171,6 +214,7 @@ model ServiceAccount {
 
   charges ServiceCharge[]
 
+  @@index([organizationId])
   @@index([buildingId])
   @@index([unitId])
 }
@@ -185,6 +229,8 @@ enum ChargeStatus {
 /// Monto capturado manualmente para un periodo (YYYY-MM).
 model ServiceCharge {
   id               String         @id @default(cuid())
+  organizationId   String
+  organization     Organization   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
   serviceAccountId String
   serviceAccount   ServiceAccount @relation(fields: [serviceAccountId], references: [id], onDelete: Cascade)
   period           String // "2026-08"
@@ -197,7 +243,7 @@ model ServiceCharge {
   updatedAt        DateTime       @updatedAt
 
   @@unique([serviceAccountId, period])
-  @@index([period])
+  @@index([organizationId, period])
 }
 
 // ---------------------------------------------------------------- Contratos
@@ -210,48 +256,55 @@ enum LeaseStatus {
 }
 
 model Lease {
-  id            String      @id @default(cuid())
-  unitId        String
-  unit          Unit        @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  tenantId      String
-  tenant        User        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  startDate     DateTime
-  endDate       DateTime
-  rentAmount    Decimal     @db.Decimal(12, 2)
-  depositAmount Decimal?    @db.Decimal(12, 2)
-  paymentDay    Int         @default(1)
-  status        LeaseStatus @default(ACTIVE)
-  notes         String?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  unitId         String
+  unit           Unit         @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  tenantId       String
+  tenant         User         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  startDate      DateTime
+  endDate        DateTime
+  rentAmount     Decimal      @db.Decimal(12, 2)
+  depositAmount  Decimal?     @db.Decimal(12, 2)
+  paymentDay     Int          @default(1)
+  status         LeaseStatus  @default(ACTIVE)
+  notes          String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   rentCharges RentCharge[]
 
   @@index([unitId, status])
   @@index([tenantId])
+  @@index([organizationId, status])
+  @@index([organizationId, endDate])
 }
 
 model RentCharge {
-  id         String       @id @default(cuid())
-  leaseId    String
-  lease      Lease        @relation(fields: [leaseId], references: [id], onDelete: Cascade)
-  period     String // "2026-08"
-  dueDate    DateTime
-  amount     Decimal      @db.Decimal(12, 2)
-  paidAmount Decimal      @default(0) @db.Decimal(12, 2)
-  status     ChargeStatus @default(PENDING)
-  paidAt     DateTime?
-  method     String?
-  reference  String?
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  leaseId        String
+  lease          Lease        @relation(fields: [leaseId], references: [id], onDelete: Cascade)
+  period         String // "2026-08"
+  dueDate        DateTime
+  amount         Decimal      @db.Decimal(12, 2)
+  paidAmount     Decimal      @default(0) @db.Decimal(12, 2)
+  status         ChargeStatus @default(PENDING)
+  paidAt         DateTime?
+  method         String?
+  reference      String?
   /// Comprobante del pago (foto del recibo o de la transferencia).
-  /// En la demo se guarda como data URL; en producción debe moverse a un
-  /// almacenamiento de archivos y dejar aquí solo la ruta.
-  receiptUrl String?
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
+  /// Por ahora se guarda como data URL; debe moverse a un almacenamiento de
+  /// archivos y dejar aquí solo la ruta.
+  receiptUrl     String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
   @@unique([leaseId, period])
-  @@index([status])
+  @@index([organizationId, period])
+  @@index([organizationId, status, dueDate])
 }
 
 // ---------------------------------------------------------------- Reservas
@@ -269,27 +322,29 @@ enum BookingStatus {
 }
 
 model Booking {
-  id          String        @id @default(cuid())
-  unitId      String
-  unit        Unit          @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  source      BookingSource @default(MANUAL)
-  externalId  String? // id de la reserva en el canal de origen
-  guestName   String
-  guestEmail  String?
-  guestPhone  String?
-  guestUserId String?
-  guestUser   User?         @relation(fields: [guestUserId], references: [id], onDelete: SetNull)
-  checkIn     DateTime
-  checkOut    DateTime
-  guests      Int           @default(1)
-  totalAmount Decimal       @db.Decimal(12, 2)
-  status      BookingStatus @default(CONFIRMED)
-  notes       String?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id             String        @id @default(cuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  unitId         String
+  unit           Unit          @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  source         BookingSource @default(MANUAL)
+  externalId     String? // id de la reserva en el canal de origen
+  guestName      String
+  guestEmail     String?
+  guestPhone     String?
+  guestUserId    String?
+  guestUser      User?         @relation(fields: [guestUserId], references: [id], onDelete: SetNull)
+  checkIn        DateTime
+  checkOut       DateTime
+  guests         Int           @default(1)
+  totalAmount    Decimal       @db.Decimal(12, 2)
+  status         BookingStatus @default(CONFIRMED)
+  notes          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   @@index([unitId, checkIn, checkOut])
-  @@index([checkIn])
+  @@index([organizationId, checkIn])
 }
 
 enum ConnectionStatus {
@@ -298,32 +353,40 @@ enum ConnectionStatus {
   DISCONNECTED
 }
 
-/// Conexión con Airbnb. En la demo la sincronización es simulada; el camino real
-/// es importar el enlace iCal del anuncio (ver src/lib/airbnb/README.md).
+/// Conexión con Airbnb. Por ahora la sincronización es simulada; el camino
+/// real es importar el enlace iCal del anuncio (ver src/lib/airbnb/README.md).
 model AirbnbConnection {
-  id           String           @id @default(cuid())
-  unitId       String           @unique
-  unit         Unit             @relation(fields: [unitId], references: [id], onDelete: Cascade)
-  listingName  String
-  listingUrl   String?
-  icalUrl      String?
-  status       ConnectionStatus @default(CONNECTED)
-  lastSyncedAt DateTime?
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  id             String           @id @default(cuid())
+  organizationId String
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  unitId         String           @unique
+  unit           Unit             @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  listingName    String
+  listingUrl     String?
+  icalUrl        String?
+  status         ConnectionStatus @default(CONNECTED)
+  lastSyncedAt   DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([organizationId])
 }
 
 // ---------------------------------------------------------------- Bitácora
 
+/// `organizationId` nulo: acciones de plataforma sin arrendadora concreta.
 model AuditLog {
-  id        String   @id @default(cuid())
-  userId    String?
-  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  action    String
-  entity    String
-  entityId  String?
-  detail    String?
-  createdAt DateTime @default(now())
+  id             String        @id @default(cuid())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  userId         String?
+  user           User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action         String
+  entity         String
+  entityId       String?
+  detail         String?
+  createdAt      DateTime      @default(now())
 
   @@index([createdAt])
+  @@index([organizationId, createdAt])
 }

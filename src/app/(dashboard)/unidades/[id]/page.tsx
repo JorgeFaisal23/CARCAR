@@ -29,7 +29,7 @@ import {
   getBuildingsForSelect,
   getUnitDetail,
 } from "@/lib/queries/properties";
-import { requireUser } from "@/lib/auth/session";
+import { requireOrgUser } from "@/lib/auth/session";
 import { canEdit } from "@/lib/permissions";
 import { SHOW_AIRBNB_INTEGRATION } from "@/lib/features";
 import {
@@ -59,8 +59,9 @@ export async function generateMetadata({
 }: {
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
+  const { db } = await requireOrgUser(["OWNER", "ADMIN"]);
   const { id } = await params;
-  const unit = await getUnitDetail(id);
+  const unit = await getUnitDetail(db, id);
   return { title: unit ? `Unidad ${unit.code}` : "Unidad" };
 }
 
@@ -69,11 +70,11 @@ export default async function UnitPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const session = await requireUser(["OWNER", "ADMIN"]);
+  const { session, db } = await requireOrgUser(["OWNER", "ADMIN"]);
   const { id } = await params;
   const [unit, buildings] = await Promise.all([
-    getUnitDetail(id),
-    getBuildingsForSelect(),
+    getUnitDetail(db, id),
+    getBuildingsForSelect(db),
   ]);
 
   if (!unit) notFound();

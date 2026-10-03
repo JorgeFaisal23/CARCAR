@@ -4,7 +4,7 @@ import { BrandLogo } from "@/components/shared/brand-logo";
 import { AppSignature } from "@/components/shared/app-signature";
 import { AppWordmark } from "@/components/shared/app-mark";
 import { APP_VERSION_LABEL } from "@/lib/app";
-import { getOrganization } from "@/lib/org";
+import { APP_BRAND } from "@/lib/brand";
 import { LoginForm } from "./login-form";
 import { isDemoMode } from "@/lib/features";
 
@@ -34,7 +34,9 @@ export default async function LoginPage({
   searchParams: Promise<{ redirigir?: string; motivo?: string }>;
 }) {
   const { redirigir, motivo } = await searchParams;
-  const org = await getOrganization();
+  // Acceso genérico: aún no se sabe de qué arrendadora es quien entra, así que
+  // se presenta con la marca del producto. Cada arrendadora tendrá el suyo.
+  const org = APP_BRAND;
   const demo = isDemoMode();
 
   return (

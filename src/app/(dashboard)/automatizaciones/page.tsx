@@ -12,7 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { requireUser } from "@/lib/auth/session";
+import { requireOrgUser } from "@/lib/auth/session";
 import { getAutomationCounts } from "@/lib/queries/automations";
 
 export const metadata: Metadata = { title: "Automatizaciones" };
@@ -61,10 +61,10 @@ const AUTOMATIONS = [
 ];
 
 export default async function AutomationsPage() {
-  await requireUser(["OWNER", "ADMIN"]);
+  const { db } = await requireOrgUser(["OWNER", "ADMIN"]);
 
   const { pendingCharges, expiringLeases, daysAhead } =
-    await getAutomationCounts();
+    await getAutomationCounts(db);
 
   return (
     <>

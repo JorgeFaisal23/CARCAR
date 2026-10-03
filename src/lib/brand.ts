@@ -1,4 +1,5 @@
 import type { BorderRadius } from "@/generated/prisma/enums";
+import { APP } from "@/lib/app";
 
 /**
  * Traduce la identidad de marca guardada en la base de datos a variables CSS.
@@ -46,6 +47,24 @@ export const BRAND_PRESETS = [
 
 export const DEFAULT_BRAND: BrandInput = {
   primaryColor: "#0F766E",
+  radius: "SOFT",
+  fontFamily: "Inter",
+};
+
+/** Lo que hace falta para vestir una pantalla: tokens + nombre y logo. */
+export type BrandIdentity = BrandInput & {
+  brandName: string;
+  logoUrl: string | null;
+};
+
+/**
+ * Marca del producto. Se usa donde no hay una arrendadora en contexto: el
+ * acceso genérico /login, el panel de plataforma y las páginas de error.
+ */
+export const APP_BRAND: BrandIdentity = {
+  brandName: APP.name,
+  logoUrl: null,
+  primaryColor: APP.color,
   radius: "SOFT",
   fontFamily: "Inter",
 };
