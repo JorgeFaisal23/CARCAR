@@ -16,6 +16,7 @@ import { requireUser } from "@/lib/auth/session";
 import { getCalendarData } from "@/lib/queries/calendar";
 import { periodKey } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { TONE_CLASSES } from "@/lib/labels";
 import { CalendarToolbar } from "./calendar-toolbar";
 import { Timeline, TimelineLegend } from "./timeline";
 
@@ -195,10 +196,10 @@ function MonthGrid({
                       key={event.id}
                       title={`${event.type === "checkin" ? "Llegada" : "Salida"}: ${event.label} · Unidad ${event.unitCode}`}
                       className={cn(
-                        "flex items-center gap-1 truncate rounded px-1 py-0.5 text-[10px]",
+                        "flex items-center gap-1 truncate rounded-sm px-1 py-0.5 text-2xs",
                         event.type === "checkin"
-                          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-                          : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
+                          ? TONE_CLASSES.success
+                          : TONE_CLASSES.warning,
                       )}
                     >
                       {event.type === "checkin" ? (
@@ -212,7 +213,7 @@ function MonthGrid({
                     </li>
                   ))}
                   {dayEvents.length > 3 ? (
-                    <li className="text-muted-foreground px-1 text-[10px]">
+                    <li className="text-muted-foreground px-1 text-2xs">
                       +{dayEvents.length - 3} más
                     </li>
                   ) : null}

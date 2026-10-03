@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { createSession, destroySession } from "@/lib/auth/session";
+import { createSession, destroySession, getSession, checkSessionActive } from "@/lib/auth/session";
 import { homePathFor } from "@/lib/permissions";
 
 const loginSchema = z.object({
@@ -38,11 +38,20 @@ export async function login(
     return { error: "Correo o contraseña incorrectos." };
   }
 
+  // Generamos un identificador único para esta sesión.
+  // Al persistirlo en la base de datos, cualquier sesión previa queda invalidada.
+  const sessionId = crypto.randomUUID();
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { currentSessionId: sessionId },
+  });
+
   await createSession({
     sub: user.id,
     email: user.email,
     name: user.name,
     role: user.role,
+    sessionId,
   });
 
   const destination =
@@ -52,6 +61,22 @@ export async function login(
 }
 
 export async function logout() {
+  const session = await getSession();
+  if (session) {
+    // Solo borramos el registro de sesión si sigue perteneciendo a este dispositivo,
+    // evitando sobreescribir si ya inició sesión en otro lado.
+    await prisma.user.updateMany({
+      where: {
+        id: session.sub,
+        currentSessionId: session.sessionId,
+      },
+      data: { currentSessionId: null },
+    });
+  }
   await destroySession();
   redirect("/login");
+}
+
+export async function verifySessionLiveness(): Promise<boolean> {
+  return checkSessionActive();
 }

@@ -66,7 +66,7 @@ export default async function TenantsPage() {
                       y otra sin él siguen alineadas. */}
                   <Link
                     href={`/inquilinos/${tenant.id}`}
-                    className="hover:bg-accent/60 -mx-2 grid grid-cols-1 gap-x-4 gap-y-2 rounded-md px-2 py-3 transition sm:grid-cols-[minmax(0,1fr)_15rem_9rem] sm:items-center"
+                    className="hover:bg-accent/60 -mx-2 grid grid-cols-1 gap-x-4 gap-y-2 rounded-lg px-2 py-3 transition-colors sm:grid-cols-[minmax(0,1fr)_15rem_9rem] sm:items-center"
                   >
                     {/* ------------------------------------------- persona */}
                     <div className="flex min-w-0 items-center gap-3">
@@ -171,9 +171,7 @@ function ContractDeadline({
     <span
       className={cn(
         "inline-flex items-center gap-1 font-medium",
-        urgent
-          ? "text-rose-600 dark:text-rose-400"
-          : "text-amber-600 dark:text-amber-400",
+        urgent ? "text-danger-foreground" : "text-warning-foreground",
       )}
     >
       <CalendarClock className="size-3 shrink-0" aria-hidden />

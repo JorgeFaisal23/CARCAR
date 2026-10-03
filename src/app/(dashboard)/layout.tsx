@@ -9,6 +9,7 @@ import { requireUser } from "@/lib/auth/session";
 import { getOrganization } from "@/lib/org";
 import { ROLE_LABELS } from "@/lib/labels";
 import { ReadOnlyNotice } from "@/components/layout/read-only-notice";
+import { SessionMonitor } from "@/components/layout/session-monitor";
 
 export default async function DashboardLayout({
   children,
@@ -20,6 +21,7 @@ export default async function DashboardLayout({
 
   return (
     <SidebarProvider>
+      <SessionMonitor />
       <AppSidebar
         brandName={org.brandName}
         logoUrl={org.logoUrl}

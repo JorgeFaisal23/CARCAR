@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { BOOKING_SOURCE_CLASSES, LEASE_BAR_CLASS } from "@/lib/labels";
 import type { CalendarBar, CalendarBarKind } from "@/lib/queries/calendar";
 
 /**
@@ -11,10 +12,8 @@ import type { CalendarBar, CalendarBarKind } from "@/lib/queries/calendar";
  */
 
 const BAR_STYLES: Record<CalendarBarKind, string> = {
-  LEASE: "bg-sky-600 text-white",
-  AIRBNB: "bg-rose-500 text-white",
-  DIRECT: "bg-emerald-600 text-white",
-  MANUAL: "bg-slate-500 text-white",
+  LEASE: LEASE_BAR_CLASS,
+  ...BOOKING_SOURCE_CLASSES,
 };
 
 const WEEKDAY = ["D", "L", "M", "M", "J", "V", "S"];
@@ -71,7 +70,7 @@ export function Timeline({
                 <div
                   key={day}
                   className={cn(
-                    "py-1 text-center text-[10px] leading-tight",
+                    "py-1 text-center text-2xs leading-tight",
                     isWeekend ? "text-muted-foreground/70" : "text-muted-foreground",
                     day === todayDay && "text-primary font-semibold",
                   )}
@@ -139,7 +138,7 @@ export function Timeline({
                       <div
                         title={`${bar.label} — ${bar.detail}`}
                         className={cn(
-                          "flex h-6 items-center overflow-hidden rounded px-1.5 text-[11px] font-medium",
+                          "flex h-6 items-center overflow-hidden rounded-sm px-1.5 text-2xs font-medium",
                           BAR_STYLES[bar.kind],
                           bar.continuesBefore && "rounded-l-none",
                           bar.continuesAfter && "rounded-r-none",

@@ -3,6 +3,7 @@ import { CreditCard, Receipt } from "lucide-react";
 import { EmptyState } from "@/components/shared/empty-state";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { StatCard } from "@/components/shared/stat-card";
+import { Amount } from "@/components/shared/amount";
 import {
   Card,
   CardContent,
@@ -36,7 +37,7 @@ export default async function PortalPaymentsPage() {
       <div className="grid gap-4 sm:grid-cols-2">
         <StatCard
           label="Saldo pendiente"
-          value={data.balance === 0 ? "Sin adeudo" : money(data.balance)}
+          value={data.balance === 0 ? "Sin adeudo" : <Amount value={data.balance} />}
           hint={
             data.balance === 0
               ? "Estás al corriente"
@@ -88,9 +89,7 @@ export default async function PortalPaymentsPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium tabular-nums">
-                      {money(charge.amount)}
-                    </span>
+                    <Amount value={charge.amount} className="text-sm" />
                     <StatusBadge tone={CHARGE_STATUS_TONES[charge.status]}>
                       {CHARGE_STATUS_LABELS[charge.status]}
                     </StatusBadge>

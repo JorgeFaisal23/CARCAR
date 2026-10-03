@@ -10,6 +10,15 @@ import {
   MapPin,
   Phone,
 } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Amount } from "@/components/shared/amount";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -250,56 +259,54 @@ export default async function TenantDetailPage({
               description="Los cargos de renta se generan cada mes desde la sección de Cobros."
             />
           ) : (
-            <div className="-mx-6 overflow-x-auto px-6">
-              <table className="w-full min-w-lg text-sm">
-                <thead>
-                  <tr className="text-muted-foreground border-b text-left">
-                    <th scope="col" className="py-2 font-medium">Periodo</th>
-                    <th scope="col" className="py-2 font-medium">Vencimiento</th>
-                    <th scope="col" className="py-2 text-right font-medium">Monto</th>
-                    <th scope="col" className="py-2 text-right font-medium">Pagado</th>
-                    <th scope="col" className="py-2 text-right font-medium">Estado</th>
-                    <th scope="col" className="py-2 text-right font-medium">
-                      <span className="sr-only">Comprobante</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {lease.charges.map((charge) => (
-                    <tr key={charge.id} className="border-b last:border-0">
-                      <td className="py-2.5 font-medium">
-                        {periodLabel(charge.period)}
-                      </td>
-                      <td className="text-muted-foreground py-2.5 tabular-nums">
-                        {shortDate(charge.dueDate)}
-                      </td>
-                      <td className="py-2.5 text-right tabular-nums">
-                        {money(charge.amount)}
-                      </td>
-                      <td className="text-muted-foreground py-2.5 text-right text-xs tabular-nums">
-                        {charge.paidAt
-                          ? `${shortDate(charge.paidAt)}${charge.method ? ` · ${charge.method}` : ""}`
-                          : "—"}
-                      </td>
-                      <td className="py-2.5 text-right">
-                        <StatusBadge tone={CHARGE_STATUS_TONES[charge.status]}>
-                          {CHARGE_STATUS_LABELS[charge.status]}
-                        </StatusBadge>
-                      </td>
-                      <td className="py-2.5 text-right">
-                        {charge.receiptUrl ? (
-                          <ReceiptBadge
-                            receiptUrl={charge.receiptUrl}
-                            title={`${tenant.name} · ${money(charge.amount)}`}
-                            subtitle={periodLabel(charge.period)}
-                          />
-                        ) : null}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <Table className="min-w-lg">
+              <TableHeader>
+                <TableRow>
+                  <TableHead scope="col">Periodo</TableHead>
+                  <TableHead scope="col">Vencimiento</TableHead>
+                  <TableHead scope="col" className="text-right">Monto</TableHead>
+                  <TableHead scope="col" className="text-right">Pagado</TableHead>
+                  <TableHead scope="col" className="text-right">Estado</TableHead>
+                  <TableHead scope="col">
+                    <span className="sr-only">Comprobante</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {lease.charges.map((charge) => (
+                  <TableRow key={charge.id}>
+                    <TableCell className="font-medium">
+                      {periodLabel(charge.period)}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground tabular-nums">
+                      {shortDate(charge.dueDate)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Amount value={charge.amount} />
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-right text-xs tabular-nums">
+                      {charge.paidAt
+                        ? `${shortDate(charge.paidAt)}${charge.method ? ` · ${charge.method}` : ""}`
+                        : "—"}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <StatusBadge tone={CHARGE_STATUS_TONES[charge.status]}>
+                        {CHARGE_STATUS_LABELS[charge.status]}
+                      </StatusBadge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {charge.receiptUrl ? (
+                        <ReceiptBadge
+                          receiptUrl={charge.receiptUrl}
+                          title={`${tenant.name} · ${money(charge.amount)}`}
+                          subtitle={periodLabel(charge.period)}
+                        />
+                      ) : null}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>

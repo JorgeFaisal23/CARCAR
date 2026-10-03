@@ -55,3 +55,7 @@ Thumbs.db
 .agents/
 skills-lock.json
 
+# Documentos internos
+/docs/internos/
+*.xlsx
+*.docx

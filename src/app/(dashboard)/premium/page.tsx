@@ -1,5 +1,14 @@
 import type { Metadata } from "next";
+import { Fragment } from "react";
 import { Check, Info, Minus, Sparkles } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import {
@@ -124,49 +133,47 @@ export default async function PremiumPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="-mx-6 overflow-x-auto px-6">
-            <table className="w-full min-w-lg text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th scope="col" className="py-2 text-left font-medium">
-                    Función
-                  </th>
-                  <th scope="col" className="w-28 py-2 text-center font-medium">
-                    Gratuito
-                  </th>
-                  <th scope="col" className="text-primary w-28 py-2 text-center font-medium">
-                    Premium
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {FEATURES.map((group) => (
-                  <>
-                    <tr key={group.group}>
-                      <th
-                        scope="colgroup"
-                        colSpan={3}
-                        className="text-muted-foreground pt-5 pb-1 text-left text-xs font-semibold tracking-wide uppercase"
-                      >
-                        {group.group}
-                      </th>
-                    </tr>
-                    {group.items.map((feature) => (
-                      <tr key={feature.name} className="border-b last:border-0">
-                        <td className="py-2.5 text-pretty">{feature.name}</td>
-                        <td className="py-2.5 text-center">
-                          <FeatureValue value={feature.free} />
-                        </td>
-                        <td className="bg-primary/5 py-2.5 text-center">
-                          <FeatureValue value={feature.premium} highlighted />
-                        </td>
-                      </tr>
-                    ))}
-                  </>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Table className="min-w-lg">
+            <TableHeader>
+              <TableRow>
+                <TableHead scope="col">Función</TableHead>
+                <TableHead scope="col" className="w-28 text-center">
+                  Gratuito
+                </TableHead>
+                <TableHead scope="col" className="text-primary w-28 text-center">
+                  Premium
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {FEATURES.map((group) => (
+                <Fragment key={group.group}>
+                  <TableRow className="border-0 hover:bg-transparent">
+                    <TableHead
+                      scope="colgroup"
+                      colSpan={3}
+                      className="h-auto pt-5 pb-1 text-xs font-semibold tracking-wide uppercase"
+                    >
+                      {group.group}
+                    </TableHead>
+                  </TableRow>
+                  {group.items.map((feature) => (
+                    <TableRow key={feature.name}>
+                      <TableCell className="whitespace-normal text-pretty">
+                        {feature.name}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <FeatureValue value={feature.free} />
+                      </TableCell>
+                      <TableCell className="bg-brand-soft text-center">
+                        <FeatureValue value={feature.premium} highlighted />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </Fragment>
+              ))}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
     </>
@@ -194,7 +201,7 @@ function FeatureValue({
   }
   return value ? (
     <Check
-      className={cn("mx-auto size-4", highlighted ? "text-primary" : "text-emerald-600")}
+      className={cn("mx-auto size-4", highlighted ? "text-primary" : "text-success")}
       aria-label="Incluido"
     />
   ) : (
@@ -244,7 +251,7 @@ function PlanCard({
               <Check
                 className={cn(
                   "mt-0.5 size-4 shrink-0",
-                  featured ? "text-primary" : "text-emerald-600",
+                  featured ? "text-primary" : "text-success",
                 )}
                 aria-hidden
               />

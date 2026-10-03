@@ -363,7 +363,7 @@ function BrandPreview({
           <div className="flex items-center justify-between">
             <span className="text-lg font-semibold tabular-nums">$6,500.00</span>
             <span
-              className="px-2 py-0.5 text-[11px] font-medium"
+              className="px-2 py-0.5 text-2xs font-medium"
               style={{
                 background: `color-mix(in oklch, ${color}, transparent 88%)`,
                 color,

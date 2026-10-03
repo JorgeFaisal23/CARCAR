@@ -4,6 +4,7 @@ import { PortalNav } from "@/components/layout/portal-nav";
 import { AppSignature } from "@/components/shared/app-signature";
 import { requireUser } from "@/lib/auth/session";
 import { getOrganization } from "@/lib/org";
+import { SessionMonitor } from "@/components/layout/session-monitor";
 
 /**
  * El portal usa un layout propio, sin el menú lateral del panel: el inquilino
@@ -19,6 +20,7 @@ export default async function PortalLayout({
 
   return (
     <div className="bg-muted/30 flex min-h-svh flex-col">
+      <SessionMonitor />
       <header className="bg-background sticky top-0 z-10 border-b">
         <div className="mx-auto flex h-14 w-full max-w-4xl items-center gap-3 px-4">
           <Link href="/portal" className="flex items-center gap-2.5">

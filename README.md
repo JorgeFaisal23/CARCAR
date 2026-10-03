@@ -95,6 +95,9 @@ src/
 - **Sesión propia en vez de NextAuth.** Un JWT firmado con `jose` (~60 líneas en
   `src/lib/auth/`) cubre login por credenciales y funciona igual en el runtime
   Edge del proxy y en las Server Actions, sin depender de una beta.
+- **Sistema visual en [`DESIGN.md`](DESIGN.md).** Es la fuente de verdad del
+  frontend: tokens, tipografía, tratamiento del dinero, catálogo de componentes
+  y lista de revisión. Cualquier cambio de interfaz empieza ahí.
 - **Marca como variables CSS.** `src/lib/brand.ts` convierte el color, el radio y
   la tipografía guardados en `Organization` en tokens que se inyectan en el
   layout raíz durante el render en servidor. Por eso el cambio de marca se

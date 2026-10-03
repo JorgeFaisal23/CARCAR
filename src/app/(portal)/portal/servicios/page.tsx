@@ -85,7 +85,7 @@ function ServiceList({
             className={cn(
               "flex size-6 items-center justify-center rounded-full",
               included
-                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
+                ? "bg-success-soft text-success-foreground"
                 : "bg-muted text-muted-foreground",
             )}
             aria-hidden

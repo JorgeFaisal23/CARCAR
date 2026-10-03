@@ -34,7 +34,7 @@ export function PortalNav({ userName }: { userName: string }) {
             key={link.href}
             href={link.href}
             className={cn(
-              "rounded-md px-3 py-1.5 text-sm transition",
+              "rounded-md px-3 py-1.5 text-sm transition-colors",
               pathname === link.href
                 ? "bg-primary/10 text-primary font-medium"
                 : "text-muted-foreground hover:text-foreground hover:bg-accent",
@@ -50,7 +50,7 @@ export function PortalNav({ userName }: { userName: string }) {
           render={
             <Button variant="ghost" size="icon" aria-label="Mi cuenta">
               <Avatar className="size-7">
-                <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-semibold">
+                <AvatarFallback className="bg-primary/10 text-primary text-2xs font-semibold">
                   {initials(userName)}
                 </AvatarFallback>
               </Avatar>

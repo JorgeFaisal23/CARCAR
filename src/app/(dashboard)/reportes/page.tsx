@@ -1,7 +1,16 @@
 import type { Metadata } from "next";
 import { Download, PiggyBank, Receipt, TrendingUp } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
+import { Amount } from "@/components/shared/amount";
 import { PremiumGate } from "@/components/premium/premium-gate";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,7 +25,7 @@ import { requireUser } from "@/lib/auth/session";
 import { getOrganization } from "@/lib/org";
 import { chartPalette } from "@/lib/brand";
 import { getReportsData } from "@/lib/queries/reports";
-import { money, moneyCompact } from "@/lib/format";
+import { moneyCompact } from "@/lib/format";
 import {
   IncomeVsExpensesChart,
   ProfitByBuildingChart,
@@ -59,26 +68,26 @@ export default async function ReportsPage() {
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <StatCard
               label="Renta facturada (6 meses)"
-              value={moneyCompact(data.totals.income)}
+              value={<Amount value={data.totals.income} compact />}
               hint={`${moneyCompact(data.totals.collected)} efectivamente cobrados`}
               icon={TrendingUp}
               tone="brand"
             />
             <StatCard
               label="Gasto en servicios"
-              value={moneyCompact(data.totals.expenses)}
+              value={<Amount value={data.totals.expenses} compact />}
               hint="Agua, luz, internet y mantenimiento"
               icon={Receipt}
             />
             <StatCard
               label="Resultado neto"
-              value={moneyCompact(net)}
+              value={<Amount value={net} compact />}
               hint={`Margen del ${margin}%`}
               icon={PiggyBank}
             />
             <StatCard
               label="Ingreso por renta corta"
-              value={moneyCompact(data.totals.shortTermIncome)}
+              value={<Amount value={data.totals.shortTermIncome} compact />}
               hint="Reservas confirmadas y completadas"
               icon={TrendingUp}
             />
@@ -127,47 +136,45 @@ export default async function ReportsPage() {
               <CardTitle>Detalle por propiedad</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="-mx-6 overflow-x-auto px-6">
-                <table className="w-full min-w-2xl text-sm">
-                  <thead>
-                    <tr className="text-muted-foreground border-b text-left">
-                      <th scope="col" className="py-2 font-medium">Propiedad</th>
-                      <th scope="col" className="py-2 text-right font-medium">Ingresos</th>
-                      <th scope="col" className="py-2 text-right font-medium">Gastos</th>
-                      <th scope="col" className="py-2 text-right font-medium">Neto</th>
-                      <th scope="col" className="py-2 text-right font-medium">Margen</th>
-                      <th scope="col" className="w-40 py-2 pl-4 font-medium">Ocupación</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.byBuilding.map((building) => (
-                      <tr key={building.id} className="border-b last:border-0">
-                        <td className="py-2.5 font-medium">{building.name}</td>
-                        <td className="py-2.5 text-right tabular-nums">
-                          {money(building.income)}
-                        </td>
-                        <td className="py-2.5 text-right tabular-nums">
-                          {money(building.expenses)}
-                        </td>
-                        <td className="py-2.5 text-right font-medium tabular-nums">
-                          {money(building.net)}
-                        </td>
-                        <td className="py-2.5 text-right tabular-nums">
-                          {building.margin}%
-                        </td>
-                        <td className="py-2.5 pl-4">
-                          <div className="flex items-center gap-2">
-                            <Progress value={building.occupancy} className="flex-1" />
-                            <span className="text-muted-foreground w-9 text-right text-xs tabular-nums">
-                              {building.occupancy}%
-                            </span>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <Table className="min-w-2xl">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead scope="col">Propiedad</TableHead>
+                    <TableHead scope="col" className="text-right">Ingresos</TableHead>
+                    <TableHead scope="col" className="text-right">Gastos</TableHead>
+                    <TableHead scope="col" className="text-right">Neto</TableHead>
+                    <TableHead scope="col" className="text-right">Margen</TableHead>
+                    <TableHead scope="col" className="w-40 pl-4">Ocupación</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.byBuilding.map((building) => (
+                    <TableRow key={building.id}>
+                      <TableCell className="font-medium">{building.name}</TableCell>
+                      <TableCell className="text-right">
+                        <Amount value={building.income} className="font-normal" />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Amount value={building.expenses} className="font-normal" />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Amount value={building.net} />
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {building.margin}%
+                      </TableCell>
+                      <TableCell className="pl-4">
+                        <div className="flex items-center gap-2">
+                          <Progress value={building.occupancy} className="flex-1" />
+                          <span className="text-muted-foreground w-9 text-right text-xs tabular-nums">
+                            {building.occupancy}%
+                          </span>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </CardContent>
           </Card>
         </div>

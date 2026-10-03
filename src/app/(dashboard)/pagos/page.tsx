@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AlertTriangle, Banknote, CircleDollarSign, Wallet } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
+import { Amount } from "@/components/shared/amount";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import {
@@ -18,7 +19,6 @@ import { canEdit } from "@/lib/permissions";
 import { getPaymentsBoard } from "@/lib/queries/payments";
 import {
   money,
-  moneyCompact,
   periodKey,
   periodLabel,
   recentPeriods,
@@ -66,20 +66,20 @@ export default async function PaymentsPage({
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label={`Esperado · ${periodLabel(period)}`}
-          value={moneyCompact(board.expected)}
+          value={<Amount value={board.expected} compact />}
           hint={`${board.chargeCount} ${board.chargeCount === 1 ? "cargo" : "cargos"} generados`}
           icon={Wallet}
         />
         <StatCard
           label="Cobrado"
-          value={moneyCompact(board.collected)}
+          value={<Amount value={board.collected} compact />}
           hint={`${progress}% del total esperado`}
           icon={Banknote}
           tone="brand"
         />
         <StatCard
           label="Por cobrar"
-          value={moneyCompact(board.pending)}
+          value={<Amount value={board.pending} compact />}
           hint={
             board.pending === 0
               ? "Todo cobrado este mes"
@@ -105,7 +105,8 @@ export default async function PaymentsPage({
           <div className="flex items-baseline justify-between text-sm">
             <span className="font-medium">Avance de cobranza</span>
             <span className="text-muted-foreground tabular-nums">
-              {money(board.collected)} de {money(board.expected)}
+              <Amount value={board.collected} className="text-foreground" /> de{" "}
+              {money(board.expected)}
             </span>
           </div>
           <Progress value={progress} />
@@ -152,9 +153,7 @@ export default async function PaymentsPage({
                     {money(building.collected)} cobrados
                   </CardDescription>
                 </div>
-                <p className="text-xl font-semibold tabular-nums">
-                  {money(building.total)}
-                </p>
+                <Amount value={building.total} className="text-xl tracking-tight" />
               </div>
             </CardHeader>
             <CardContent>
@@ -181,9 +180,7 @@ export default async function PaymentsPage({
                     </div>
 
                     <div className="flex items-center justify-between gap-3 sm:justify-end">
-                      <span className="text-sm font-medium tabular-nums">
-                        {money(charge.amount)}
-                      </span>
+                      <Amount value={charge.amount} className="text-sm" />
                       <StatusBadge tone={CHARGE_STATUS_TONES[charge.status]}>
                         {CHARGE_STATUS_LABELS[charge.status]}
                       </StatusBadge>

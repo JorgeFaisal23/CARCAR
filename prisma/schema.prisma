@@ -60,6 +60,7 @@ model User {
   documentId   String? // identificación oficial
   role         Role     @default(TENANT)
   active       Boolean  @default(true)
+  currentSessionId String?
   notes        String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt

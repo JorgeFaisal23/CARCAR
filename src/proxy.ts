@@ -12,8 +12,9 @@ export async function proxy(request: NextRequest) {
   );
 
   if (PUBLIC_PATHS.includes(pathname)) {
-    // Quien ya inició sesión no necesita ver el login otra vez.
-    if (session) {
+    // Quien ya inició sesión no necesita ver el login otra vez, salvo
+    // que venga redirigido por algún motivo (ej. sesión duplicada/desplazada).
+    if (session && !request.nextUrl.searchParams.has("motivo")) {
       return NextResponse.redirect(
         new URL(homePathFor(session.role), request.url),
       );

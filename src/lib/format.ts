@@ -32,6 +32,25 @@ export function moneyCompact(value: Decimalish) {
   return compactCurrencyFormatter.format(toNumber(value));
 }
 
+/**
+ * Monto separado en signo, símbolo y cifra. Lo usa <Amount> para atenuar el
+ * símbolo de moneda y dejar la cifra como protagonista.
+ */
+export function moneyParts(value: Decimalish, { compact = false } = {}) {
+  const formatter = compact ? compactCurrencyFormatter : currencyFormatter;
+  const parts = formatter.formatToParts(toNumber(value));
+  const pick = (types: Intl.NumberFormatPartTypes[]) =>
+    parts
+      .filter((part) => types.includes(part.type))
+      .map((part) => part.value)
+      .join("");
+  return {
+    sign: pick(["minusSign"]),
+    symbol: pick(["currency"]),
+    number: pick(["integer", "group", "decimal", "fraction"]),
+  };
+}
+
 export function longDate(value: Date | string) {
   const date = typeof value === "string" ? parseISO(value) : value;
   return format(date, "d 'de' MMMM 'de' yyyy", { locale: es });

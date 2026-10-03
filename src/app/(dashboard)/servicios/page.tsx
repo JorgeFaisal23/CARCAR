@@ -1,8 +1,18 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Receipt, TrendingDown, TrendingUp, Wallet } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
+import { Amount } from "@/components/shared/amount";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import {
@@ -59,7 +69,7 @@ export default async function ServicesPage({
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <StatCard
           label={`Total consolidado · ${periodLabel(period)}`}
-          value={moneyCompact(board.grandTotal)}
+          value={<Amount value={board.grandTotal} compact />}
           hint={`${board.buildings.length} ${board.buildings.length === 1 ? "propiedad" : "propiedades"}`}
           icon={Wallet}
           tone="brand"
@@ -136,102 +146,81 @@ export default async function ServicesPage({
                   description="Agrega cuartos o departamentos para capturar sus servicios."
                 />
               ) : (
-                <div className="-mx-6 overflow-x-auto px-6">
-                  <table className="w-full min-w-[36rem] border-collapse text-sm">
-                    <caption className="sr-only">
-                      Montos de servicios por unidad en {periodLabel(period)}
-                    </caption>
-                    <thead>
-                      <tr className="border-b">
-                        <th
-                          scope="col"
-                          className="text-muted-foreground py-2 pr-3 text-left font-medium"
-                        >
-                          Unidad
-                        </th>
-                        {board.columns.map((type) => (
-                          <th
-                            key={type}
-                            scope="col"
-                            className="text-muted-foreground px-2 py-2 text-right font-medium"
-                          >
-                            {SERVICE_TYPE_LABELS[type]}
-                          </th>
-                        ))}
-                        <th
-                          scope="col"
-                          className="text-muted-foreground py-2 pl-3 text-right font-medium"
-                        >
-                          Subtotal
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {building.units.map((unit) => (
-                        <tr key={unit.id} className="border-b last:border-0">
-                          <th
-                            scope="row"
-                            className="py-1.5 pr-3 text-left font-normal"
-                          >
-                            <Link
-                              href={`/unidades/${unit.id}`}
-                              className="hover:underline"
-                            >
-                              <span className="font-medium">{unit.code}</span>
-                            </Link>
-                          </th>
-                          {board.columns.map((type) => {
-                            const cell = unit.cells[type];
-                            return (
-                              <td key={type} className="px-1 py-1.5">
-                                {cell ? (
-                                  <AmountInput
-                                    accountId={cell.accountId}
-                                    period={period}
-                                    initialAmount={cell.amount}
-                                    label={`${SERVICE_TYPE_LABELS[type]} de la unidad ${unit.code}`}
-                                    editable={editable}
-                                  />
-                                ) : (
-                                  <span
-                                    className="text-muted-foreground/40 block text-right"
-                                    title="Esta unidad no tiene contratado este servicio"
-                                  >
-                                    ·
-                                  </span>
-                                )}
-                              </td>
-                            );
-                          })}
-                          <td className="py-1.5 pl-3 text-right font-medium tabular-nums">
-                            {unit.total === 0 ? (
-                              <span className="text-muted-foreground">—</span>
-                            ) : (
-                              money(unit.total)
-                            )}
-                          </td>
-                        </tr>
+                <Table className="min-w-xl">
+                  <caption className="sr-only">
+                    Montos de servicios por unidad en {periodLabel(period)}
+                  </caption>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead scope="col" className="pr-3">
+                        Unidad
+                      </TableHead>
+                      {board.columns.map((type) => (
+                        <TableHead key={type} scope="col" className="text-right">
+                          {SERVICE_TYPE_LABELS[type]}
+                        </TableHead>
                       ))}
-                    </tbody>
-                    <tfoot>
-                      <tr className="border-t-2">
-                        <th
-                          scope="row"
-                          className="py-2 pr-3 text-left text-sm font-medium"
-                        >
-                          Subtotal por unidades
+                      <TableHead scope="col" className="pl-3 text-right">
+                        Subtotal
+                      </TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {building.units.map((unit) => (
+                      <TableRow key={unit.id}>
+                        <th scope="row" className="py-1.5 pr-3 pl-2 text-left font-normal">
+                          <Link
+                            href={`/unidades/${unit.id}`}
+                            className="hover:underline"
+                          >
+                            <span className="font-medium">{unit.code}</span>
+                          </Link>
                         </th>
-                        <td
-                          colSpan={board.columns.length}
-                          className="py-2"
-                        />
-                        <td className="py-2 pl-3 text-right font-semibold tabular-nums">
-                          {money(building.unitsTotal)}
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
+                        {board.columns.map((type) => {
+                          const cell = unit.cells[type];
+                          return (
+                            <TableCell key={type} className="px-1 py-1.5">
+                              {cell ? (
+                                <AmountInput
+                                  accountId={cell.accountId}
+                                  period={period}
+                                  initialAmount={cell.amount}
+                                  label={`${SERVICE_TYPE_LABELS[type]} de la unidad ${unit.code}`}
+                                  editable={editable}
+                                />
+                              ) : (
+                                <span
+                                  className="text-muted-foreground/40 block text-right"
+                                  title="Esta unidad no tiene contratado este servicio"
+                                >
+                                  ·
+                                </span>
+                              )}
+                            </TableCell>
+                          );
+                        })}
+                        <TableCell className="py-1.5 pl-3 text-right">
+                          {unit.total === 0 ? (
+                            <span className="text-muted-foreground">—</span>
+                          ) : (
+                            <Amount value={unit.total} className="font-medium" />
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                  <TableFooter className="bg-transparent">
+                    <TableRow className="hover:bg-transparent">
+                      <th scope="row" className="py-2 pr-3 pl-2 text-left font-medium">
+                        Subtotal por unidades
+                      </th>
+                      <TableCell colSpan={board.columns.length} />
+                      <TableCell className="pl-3 text-right">
+                        <Amount value={building.unitsTotal} />
+                      </TableCell>
+                    </TableRow>
+                  </TableFooter>
+                </Table>
               )}
 
               {/* ------------------------------- recibos de toda la propiedad */}

@@ -30,9 +30,9 @@ const HIGHLIGHTS = [
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ redirigir?: string }>;
+  searchParams: Promise<{ redirigir?: string; motivo?: string }>;
 }) {
-  const { redirigir } = await searchParams;
+  const { redirigir, motivo } = await searchParams;
   const org = await getOrganization();
 
   return (
@@ -107,7 +107,7 @@ export default async function LoginPage({
             </p>
           </div>
 
-          <LoginForm redirigir={redirigir} />
+          <LoginForm redirigir={redirigir} motivo={motivo} />
 
           {/* En celular la columna de marca no se ve; aquí queda la única
               mención al producto. */}

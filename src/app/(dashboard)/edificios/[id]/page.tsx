@@ -105,7 +105,7 @@ export default async function BuildingDetailPage({
                 <li key={unit.id}>
                   <Link
                     href={`/unidades/${unit.id}`}
-                    className="hover:bg-accent/60 -mx-2 flex flex-col gap-2 rounded-md px-2 py-3 transition sm:flex-row sm:items-center sm:gap-4"
+                    className="hover:bg-accent/60 -mx-2 flex flex-col gap-2 rounded-lg px-2 py-3 transition-colors sm:flex-row sm:items-center sm:gap-4"
                   >
                     <div className="flex min-w-0 flex-1 items-center gap-3">
                       <span className="bg-muted text-muted-foreground flex size-10 shrink-0 items-center justify-center rounded-md text-sm font-semibold">

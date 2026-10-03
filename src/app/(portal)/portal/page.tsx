@@ -11,6 +11,7 @@ import {
 import { EmptyState } from "@/components/shared/empty-state";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { ButtonLink } from "@/components/shared/button-link";
+import { Amount } from "@/components/shared/amount";
 import {
   Card,
   CardContent,
@@ -75,12 +76,13 @@ export default async function PortalHomePage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="bg-primary/5 border-primary/20 flex flex-wrap items-center justify-between gap-4 rounded-lg border p-4">
+              <div className="bg-brand-soft flex flex-wrap items-center justify-between gap-4 rounded-lg p-4">
                 <div>
                   <p className="text-muted-foreground text-xs">Tu renta mensual</p>
-                  <p className="text-3xl font-semibold tabular-nums">
-                    {money(data.lease.rentAmount)}
-                  </p>
+                  <Amount
+                    value={data.lease.rentAmount}
+                    className="text-3xl tracking-tight"
+                  />
                 </div>
                 <div className="text-right">
                   <p className="text-muted-foreground text-xs">Día de pago</p>
@@ -162,9 +164,10 @@ export default async function PortalHomePage() {
                       {periodLabel(data.nextCharge.period)} · vence el{" "}
                       {shortDate(data.nextCharge.dueDate)}
                     </p>
-                    <p className="text-2xl font-semibold tabular-nums">
-                      {money(data.nextCharge.amount - data.nextCharge.paidAmount)}
-                    </p>
+                    <Amount
+                      value={data.nextCharge.amount - data.nextCharge.paidAmount}
+                      className="block text-2xl tracking-tight"
+                    />
                   </div>
                   <div className="flex items-center gap-3">
                     <StatusBadge

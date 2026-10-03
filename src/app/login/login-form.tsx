@@ -2,7 +2,8 @@
 
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { AlertCircle, LogIn } from "lucide-react";
+import { LogIn, ShieldAlert } from "lucide-react";
+import { Callout } from "@/components/shared/callout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,13 +30,26 @@ function SubmitButton() {
   );
 }
 
-export function LoginForm({ redirigir }: { redirigir?: string }) {
+export function LoginForm({
+  redirigir,
+  motivo,
+}: {
+  redirigir?: string;
+  motivo?: string;
+}) {
   const [state, formAction] = useActionState<LoginState, FormData>(login, {});
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   return (
     <div className="space-y-6">
+      {motivo === "sesion_duplicada" ? (
+        <Callout tone="warning" icon={ShieldAlert} title="Sesión cerrada">
+          Tu sesión se cerró porque se inició sesión en otro dispositivo o
+          navegador. Vuelve a ingresar para continuar aquí.
+        </Callout>
+      ) : null}
+
       <form action={formAction} className="space-y-4">
         <input type="hidden" name="redirigir" value={redirigir ?? ""} />
 
@@ -67,13 +81,7 @@ export function LoginForm({ redirigir }: { redirigir?: string }) {
         </div>
 
         {state.error ? (
-          <p
-            role="alert"
-            className="flex items-center gap-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900 dark:bg-rose-950/50 dark:text-rose-300"
-          >
-            <AlertCircle className="size-4 shrink-0" aria-hidden />
-            {state.error}
-          </p>
+          <Callout tone="danger">{state.error}</Callout>
         ) : null}
 
         <SubmitButton />
@@ -96,7 +104,7 @@ export function LoginForm({ redirigir }: { redirigir?: string }) {
                 setEmail(account.email);
                 setPassword(DEMO_PASSWORD);
               }}
-              className="hover:border-primary/60 hover:bg-accent focus-visible:ring-ring rounded-md border p-2.5 text-left transition focus-visible:ring-2 focus-visible:outline-none"
+              className="hover:border-primary/60 hover:bg-accent focus-visible:ring-ring rounded-lg border p-2.5 text-left transition-colors focus-visible:ring-2 focus-visible:outline-none"
             >
               <span className="block text-sm font-medium">
                 {ROLE_LABELS[account.role]}

@@ -115,7 +115,7 @@ export function AddServiceDialog({
               />
             </Field>
 
-            <div className="flex items-center justify-between rounded-md border p-3">
+            <div className="flex items-center justify-between rounded-lg border p-3">
               <Label htmlFor="incluido-nuevo" className="font-normal">
                 ¿Va incluido en la renta?
               </Label>

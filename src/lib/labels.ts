@@ -18,23 +18,28 @@ import type {
 export type Tone = "success" | "warning" | "danger" | "neutral" | "info";
 
 export const TONE_CLASSES: Record<Tone, string> = {
-  success:
-    "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-900",
-  warning:
-    "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-900",
-  danger:
-    "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-900",
-  neutral:
-    "bg-muted text-muted-foreground border-border",
-  info: "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/50 dark:text-sky-300 dark:border-sky-900",
+  success: "bg-success-soft text-success-foreground border-success-border",
+  warning: "bg-warning-soft text-warning-foreground border-warning-border",
+  danger: "bg-danger-soft text-danger-foreground border-danger-border",
+  neutral: "bg-muted text-muted-foreground border-border",
+  info: "bg-info-soft text-info-foreground border-info-border",
 };
 
 export const TONE_DOT: Record<Tone, string> = {
-  success: "bg-emerald-500",
-  warning: "bg-amber-500",
-  danger: "bg-rose-500",
+  success: "bg-success",
+  warning: "bg-warning",
+  danger: "bg-danger",
   neutral: "bg-muted-foreground/50",
-  info: "bg-sky-500",
+  info: "bg-info",
+};
+
+/** Texto en color de estado, sin fondo: cifras y avisos en línea. */
+export const TONE_TEXT: Record<Tone, string> = {
+  success: "text-success-foreground",
+  warning: "text-warning-foreground",
+  danger: "text-danger-foreground",
+  neutral: "text-muted-foreground",
+  info: "text-info-foreground",
 };
 
 // ------------------------------------------------------------------ roles
@@ -149,9 +154,9 @@ export const BOOKING_SOURCE_LABELS: Record<BookingSource, string> = {
  * siendo legible aunque el arrendador elija un color de marca parecido.
  */
 export const BOOKING_SOURCE_CLASSES: Record<BookingSource, string> = {
-  AIRBNB: "bg-rose-500 text-white",
-  DIRECT: "bg-emerald-600 text-white",
-  MANUAL: "bg-slate-500 text-white",
+  AIRBNB: "bg-event-airbnb text-event-foreground",
+  DIRECT: "bg-event-direct text-event-foreground",
+  MANUAL: "bg-event-manual text-event-foreground",
 };
 
-export const LEASE_BAR_CLASS = "bg-sky-600 text-white";
+export const LEASE_BAR_CLASS = "bg-event-lease text-event-foreground";

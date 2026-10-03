@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
+import { Amount } from "@/components/shared/amount";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ButtonLink } from "@/components/shared/button-link";
@@ -62,13 +63,13 @@ export default async function DashboardPage() {
         />
         <StatCard
           label="Renta cobrada este mes"
-          value={moneyCompact(data.collected)}
+          value={<Amount value={data.collected} compact />}
           hint={`De ${moneyCompact(data.expectedIncome)} esperados`}
           icon={Banknote}
         />
         <StatCard
           label="Gasto en servicios"
-          value={moneyCompact(data.servicesTotal)}
+          value={<Amount value={data.servicesTotal} compact />}
           hint={
             data.servicesMissing > 0
               ? `Faltan ${data.servicesMissing} montos por capturar`
