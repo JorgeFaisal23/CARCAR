@@ -11,10 +11,8 @@ import { Field, FormError } from "@/components/shared/form-field";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { SERVICE_TYPE_LABELS } from "@/lib/labels";
 import type { ServiceType } from "@/generated/prisma/enums";
-import {
-  updateServiceAccount,
-  type ActionResult,
-} from "@/server/actions/properties";
+import { updateServiceAccount } from "@/server/actions/properties";
+import type { ActionResult } from "@/lib/action-result";
 
 function Save({ dirty }: { dirty: boolean }) {
   const { pending } = useFormStatus();

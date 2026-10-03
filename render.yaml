@@ -1,6 +1,12 @@
 # Blueprint de Render. En el panel: New > Blueprint, apunta al repo y Render
-# lee este archivo. Las tres variables marcadas `sync: false` se piden al
-# crear el servicio (no se guardan aquí: `.env` está en .gitignore).
+# lee este archivo. Las variables marcadas `sync: false` se piden al crear el
+# servicio (no se guardan aquí: `.env` está en .gitignore).
+#
+# Migraciones: el build aplica las pendientes con `prisma migrate deploy`
+# (usa DIRECT_URL, sin pooler). Una base creada antes de existir
+# prisma/migrations debe marcarse una sola vez como al día con el baseline:
+#   npx prisma migrate resolve --applied 0_init
+# Si no se hace, el build falla al intentar crear tablas que ya existen.
 services:
   - type: web
     name: carcar
@@ -8,7 +14,7 @@ services:
     plan: free
     # Neon vive en us-east-2, así que Ohio deja la base al lado del servidor.
     region: ohio
-    buildCommand: npm ci && npm run build
+    buildCommand: npm ci && npx prisma migrate deploy && npm run build
     startCommand: npm run start
     envVars:
       - key: NODE_VERSION
@@ -16,8 +22,17 @@ services:
       # Conexión con pooler: la usa la app en cada request.
       - key: DATABASE_URL
         sync: false
-      # Conexión directa: solo la usan `db push` y `db seed`.
+      # Conexión directa: la usan `migrate deploy` y el seed.
       - key: DIRECT_URL
         sync: false
       - key: AUTH_SECRET
         sync: false
+      # Identidad del producto (placeholder hasta definir el nombre final).
+      # Se incrustan en el build: cambiarlas requiere volver a desplegar.
+      - key: NEXT_PUBLIC_APP_NAME
+        sync: false
+      - key: NEXT_PUBLIC_APP_COLOR
+        sync: false
+      # "true" solo en instancias de demostración: muestra las cuentas demo.
+      - key: DEMO_MODE
+        value: "false"

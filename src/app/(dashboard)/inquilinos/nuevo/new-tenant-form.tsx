@@ -9,7 +9,7 @@ import { ButtonLink } from "@/components/shared/button-link";
 import { Field, FormError, NativeSelect } from "@/components/shared/form-field";
 import { Separator } from "@/components/ui/separator";
 import { createTenant } from "@/server/actions/tenants";
-import type { ActionResult } from "@/server/actions/properties";
+import type { ActionResult } from "@/lib/action-result";
 import { money } from "@/lib/format";
 
 function Submit() {
@@ -79,9 +79,16 @@ export function NewTenantForm({
         <Field
           label="Contraseña temporal"
           htmlFor="password"
-          hint="Si la dejas vacía se usa “demo1234”. El inquilino podrá cambiarla."
+          hint="Mínimo 8 caracteres. Compártela con el inquilino por un medio seguro."
         >
-          <Input id="password" name="password" type="text" placeholder="demo1234" />
+          <Input
+            id="password"
+            name="password"
+            type="text"
+            autoComplete="new-password"
+            minLength={8}
+            required
+          />
         </Field>
 
         <Field label="Notas" htmlFor="notes">

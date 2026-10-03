@@ -41,9 +41,10 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   // Todo salvo assets estáticos y la API de autenticación. El manifiesto y los
-  // iconos describen la app (CARCAR) y el navegador los pide sin cookies: si
+  // iconos describen el producto y el navegador los pide sin cookies: si
   // pasaran por aquí acabarían redirigidos al login y el icono no cargaría.
+  // `icon` es el favicon generado por src/app/icon.tsx (no lleva extensión).
   matcher: [
-    "/((?!api|_next/static|_next/image|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    "/((?!api|_next/static|_next/image|manifest.webmanifest|icon|apple-icon|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };

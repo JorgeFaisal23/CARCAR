@@ -1,6 +1,11 @@
-# CARCAR
+# AppRentas (nombre provisional)
 
-**CARCAR** es la plataforma de gestión de rentas: edificios con múltiples
+> El nombre definitivo del producto aún no existe. En el código se usa el
+> placeholder configurable `APP.name` (variable `NEXT_PUBLIC_APP_NAME`, por
+> defecto `AppRentas`). **CARCAR es un cliente** (una arrendadora), no el
+> producto; el repositorio conserva ese nombre por historia.
+
+Plataforma de gestión de rentas: edificios con múltiples
 unidades, control de servicios, cobros de renta, calendario unificado con
 reservas de corta estancia y portal para inquilinos.
 
@@ -10,19 +15,20 @@ No hay que confundirlas:
 
 | | Qué es | Dónde vive | Quién la cambia |
 |---|---|---|---|
-| **CARCAR** | El producto | `src/lib/app.ts` | Nadie desde la app: es fija |
+| **Producto** (`APP.name`) | El software | `src/lib/app.ts` | Variables `NEXT_PUBLIC_APP_*` al compilar; nadie desde la app |
 | **Marca del arrendador** | Nombre, logo, color y tipografía de quien renta | Tabla `Organization` | El dueño, en `/configuracion/marca` |
 
 La marca del arrendador viste la interfaz completa (panel, portal y acceso);
-CARCAR aparece solo en los márgenes: pie del menú lateral, pie del portal,
+el producto aparece solo en los márgenes: pie del menú lateral, pie del portal,
 pantalla de acceso, página de planes, favicon y metadatos. El distintivo del
 producto usa su propio color (`APP.color`) para que no cambie con el color de
 marca que elija cada cliente.
 
 ## Cuentas de demostración
 
-Contraseña para todas: **`demo1234`**. En la pantalla de acceso hay botones que
-llenan el formulario con cada perfil.
+Contraseña para todas: **`demo1234`**. Con `DEMO_MODE=true` la pantalla de
+acceso muestra botones que llenan el formulario con cada perfil. En producción
+`DEMO_MODE` va apagado y esas cuentas no deben existir.
 
 | Correo | Rol | Qué puede hacer |
 |---|---|---|
@@ -35,7 +41,7 @@ llenan el formulario con cada perfil.
 
 ```bash
 npm install
-npm run db:push     # crea las tablas en la base de datos
+npm run db:deploy   # aplica las migraciones de prisma/migrations
 npm run db:seed     # carga los datos de demostración
 npm run dev         # http://localhost:3000
 ```
@@ -47,11 +53,15 @@ Variables de entorno (ver `.env.example`):
 | `DATABASE_URL` | Conexión agrupada de Neon; la usa la app en ejecución |
 | `DIRECT_URL` | Conexión directa (sin `-pooler`); Prisma la necesita para crear o alterar tablas |
 | `AUTH_SECRET` | Clave con la que se firman las sesiones |
+| `NEXT_PUBLIC_APP_NAME` | Nombre del producto (placeholder `AppRentas`). También `NEXT_PUBLIC_APP_TAGLINE`, `NEXT_PUBLIC_APP_COLOR` y `NEXT_PUBLIC_APP_URL`. Se incrustan al compilar |
+| `DEMO_MODE` | `true` muestra las cuentas de prueba en el acceso. Nunca en producción |
 
 Otros comandos:
 
 ```bash
-npm run db:reset    # borra todo y vuelve a sembrar
+npm run db:migrate  # crea una migración nueva tras editar schema.prisma
+npm run db:reset    # borra todo, reaplica migraciones y vuelve a sembrar
+npm test            # pruebas (Vitest)
 npm run db:studio   # explorador de la base de datos
 npm run build       # build de producción
 ```
@@ -105,9 +115,10 @@ src/
   la pantalla de acceso. Ningún componente escribe un color a mano.
 - **`<select>` nativo en los formularios.** En celular abre el selector del
   sistema; la demo se muestra en teléfono.
-- **Prisma 7 con driver adapter.** Las URLs viven en `prisma7.config.ts`, no en
-  el esquema. Se usa `db push` en vez de migraciones: es una demo y así el
-  esquema y la base se mantienen sincronizados sin historial que administrar.
+- **Prisma 7 con driver adapter y migraciones.** Las URLs viven en
+  `prisma7.config.ts`, no en el esquema. Los cambios de esquema van en
+  `prisma/migrations`; `0_init` es el baseline del esquema que antes se
+  mantenía con `db push`.
 - **El color de los estados no es el color de marca.** Verde/ámbar/rojo y los
   colores del calendario están fuera de los tokens de marca a propósito:
   distinguir "vencido" de "pagado" es información, no estilo, y debe seguir
@@ -140,9 +151,8 @@ src/
 
 1. Sube el repositorio a GitHub e impórtalo en Vercel.
 2. Configura `DATABASE_URL`, `DIRECT_URL` y `AUTH_SECRET` en el proyecto.
-3. El `postinstall` ya ejecuta `prisma generate`. Las tablas se crean con
-   `npm run db:push` y los datos con `npm run db:seed` (ambos apuntan a la misma
-   base de Neon, así que basta con haberlos corrido una vez desde tu máquina).
+3. El `postinstall` ya ejecuta `prisma generate`. Las migraciones se aplican
+   con `npm run db:deploy` y los datos de demostración con `npm run db:seed`.
 
 ## Despliegue en Render
 
@@ -152,14 +162,21 @@ configurar nada a mano:
 1. En Render: **New > Blueprint**, elige el repositorio y aplica el blueprint.
 2. Render pedirá `DATABASE_URL`, `DIRECT_URL` y `AUTH_SECRET` (están marcadas
    `sync: false` para que los secretos no vivan en el repositorio).
-3. Construye con `npm ci && npm run build` y arranca con `npm run start`. El
-   `postinstall` genera el cliente de Prisma; `next start` escucha en el `PORT`
-   que asigna Render.
+3. Construye con `npm ci && npx prisma migrate deploy && npm run build` y
+   arranca con `npm run start`. El `postinstall` genera el cliente de Prisma;
+   `next start` escucha en el `PORT` que asigna Render.
 
-Las tablas y los datos no se crean en el despliegue: corre `npm run db:push` y
-`npm run db:seed` una vez desde tu máquina contra la misma base de Neon. Se
-deja fuera del build a propósito, para que un despliegue no pueda alterar el
-esquema de la base en producción.
+El build aplica las migraciones pendientes. Una base creada antes de que
+existiera `prisma/migrations` (la que se mantenía con `db push`) debe marcarse
+**una sola vez** como al día con el baseline, o el build fallará al intentar
+crear tablas que ya existen:
+
+```bash
+npx prisma migrate resolve --applied 0_init
+```
+
+Los datos de demostración nunca se cargan en el despliegue: `npm run db:seed`
+solo se corre a mano y nunca contra producción.
 
 El build no necesita la base: `getOrganization` cae a la marca por defecto si
 no puede leerla ([`src/lib/org.ts`](src/lib/org.ts)). Sin eso, la 404 —que Next

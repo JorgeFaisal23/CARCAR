@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { createSession, destroySession, getSession, checkSessionActive } from "@/lib/auth/session";
-import { homePathFor } from "@/lib/permissions";
+import { safeRedirect } from "@/lib/redirect";
 
 const loginSchema = z.object({
   email: z.string().trim().toLowerCase().email("Escribe un correo válido."),
@@ -54,10 +54,7 @@ export async function login(
     sessionId,
   });
 
-  const destination =
-    redirigir && redirigir.startsWith("/") ? redirigir : homePathFor(user.role);
-
-  redirect(destination);
+  redirect(safeRedirect(redirigir, user.role));
 }
 
 export async function logout() {

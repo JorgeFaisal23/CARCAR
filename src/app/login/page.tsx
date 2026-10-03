@@ -6,6 +6,7 @@ import { AppWordmark } from "@/components/shared/app-mark";
 import { APP_VERSION_LABEL } from "@/lib/app";
 import { getOrganization } from "@/lib/org";
 import { LoginForm } from "./login-form";
+import { isDemoMode } from "@/lib/features";
 
 export const metadata: Metadata = { title: "Entrar" };
 
@@ -34,6 +35,7 @@ export default async function LoginPage({
 }) {
   const { redirigir, motivo } = await searchParams;
   const org = await getOrganization();
+  const demo = isDemoMode();
 
   return (
     <main className="grid min-h-svh lg:grid-cols-2">
@@ -86,9 +88,11 @@ export default async function LoginPage({
           <p className="text-primary-foreground/70 text-xs font-medium">
             {APP_VERSION_LABEL}
           </p>
-          <p className="text-primary-foreground/60 text-xs">
-            Versión de demostración. Los datos mostrados son ficticios.
-          </p>
+          {demo ? (
+            <p className="text-primary-foreground/60 text-xs">
+              Versión de demostración. Los datos mostrados son ficticios.
+            </p>
+          ) : null}
         </div>
       </section>
 
@@ -107,7 +111,11 @@ export default async function LoginPage({
             </p>
           </div>
 
-          <LoginForm redirigir={redirigir} motivo={motivo} />
+          <LoginForm
+            redirigir={redirigir}
+            motivo={motivo}
+            showDemoAccounts={demo}
+          />
 
           {/* En celular la columna de marca no se ve; aquí queda la única
               mención al producto. */}

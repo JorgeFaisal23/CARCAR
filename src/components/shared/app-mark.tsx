@@ -1,18 +1,22 @@
-import { APP } from "@/lib/app";
+import { APP, APP_INITIAL } from "@/lib/app";
 import { cn } from "@/lib/utils";
 
 /**
- * Distintivo de CARCAR: dos arcos concéntricos (la doble C del nombre).
+ * Distintivo del producto: la inicial de APP.name sobre una pastilla.
+ *
+ * Es genérico a propósito: el nombre del producto es configurable (ver
+ * src/lib/app.ts), así que el distintivo se deriva de él en vez de dibujar un
+ * logotipo fijo.
  *
  * No usa los tokens de marca: el color sale de APP.color o del color de texto
  * heredado, nunca de --primary. Si tomara el primario, el logo del producto
- * cambiaría con la marca del arrendador y dejaría de identificar al software.
+ * cambiaría con la marca de la arrendadora y dejaría de identificar al software.
  */
 export function AppMark({
   variant = "solid",
   className,
 }: {
-  /** `solid`: pastilla con el color del producto. `plain`: arcos en currentColor. */
+  /** `solid`: pastilla con el color del producto. `plain`: contorno en currentColor. */
   variant?: "solid" | "plain";
   className?: string;
 }) {
@@ -25,15 +29,32 @@ export function AppMark({
       aria-label={APP.name}
       className={cn("size-6 shrink-0", className)}
     >
-      {solid ? <rect width="32" height="32" rx="8" fill={APP.color} /> : null}
-      <g
-        fill="none"
-        stroke={solid ? "#ffffff" : "currentColor"}
-        strokeLinecap="round"
+      {solid ? (
+        <rect width="32" height="32" rx="8" fill={APP.color} />
+      ) : (
+        <rect
+          x="1.5"
+          y="1.5"
+          width="29"
+          height="29"
+          rx="7"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+        />
+      )}
+      <text
+        x="16"
+        y="16"
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontSize="18"
+        fontWeight="700"
+        fontFamily="system-ui, sans-serif"
+        fill={solid ? "#ffffff" : "currentColor"}
       >
-        <path d="M21.16 8.63A9 9 0 1 0 21.16 23.37" strokeWidth="3.2" />
-        <path d="M18.6 12.3A4.4 4.4 0 1 0 18.6 19.7" strokeWidth="2" />
-      </g>
+        {APP_INITIAL}
+      </text>
     </svg>
   );
 }

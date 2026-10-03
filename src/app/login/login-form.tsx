@@ -33,9 +33,12 @@ function SubmitButton() {
 export function LoginForm({
   redirigir,
   motivo,
+  showDemoAccounts = false,
 }: {
   redirigir?: string;
   motivo?: string;
+  /** Solo en modo demostración (ver isDemoMode en src/lib/features.ts). */
+  showDemoAccounts?: boolean;
 }) {
   const [state, formAction] = useActionState<LoginState, FormData>(login, {});
   const [email, setEmail] = useState("");
@@ -87,35 +90,37 @@ export function LoginForm({
         <SubmitButton />
       </form>
 
-      <div className="space-y-3 rounded-lg border border-dashed p-4">
-        <div>
-          <p className="text-sm font-medium">Cuentas de demostración</p>
-          <p className="text-muted-foreground text-xs">
-            Elige un perfil para llenar el formulario y ver la plataforma desde
-            ese rol.
-          </p>
+      {showDemoAccounts ? (
+        <div className="space-y-3 rounded-lg border border-dashed p-4">
+          <div>
+            <p className="text-sm font-medium">Cuentas de demostración</p>
+            <p className="text-muted-foreground text-xs">
+              Elige un perfil para llenar el formulario y ver la plataforma desde
+              ese rol.
+            </p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {DEMO_ACCOUNTS.map((account) => (
+              <button
+                key={account.email}
+                type="button"
+                onClick={() => {
+                  setEmail(account.email);
+                  setPassword(DEMO_PASSWORD);
+                }}
+                className="hover:border-primary/60 hover:bg-accent focus-visible:ring-ring rounded-lg border p-2.5 text-left transition-colors focus-visible:ring-2 focus-visible:outline-none"
+              >
+                <span className="block text-sm font-medium">
+                  {ROLE_LABELS[account.role]}
+                </span>
+                <span className="text-muted-foreground block text-xs text-pretty">
+                  {ROLE_DESCRIPTIONS[account.role]}
+                </span>
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {DEMO_ACCOUNTS.map((account) => (
-            <button
-              key={account.email}
-              type="button"
-              onClick={() => {
-                setEmail(account.email);
-                setPassword(DEMO_PASSWORD);
-              }}
-              className="hover:border-primary/60 hover:bg-accent focus-visible:ring-ring rounded-lg border p-2.5 text-left transition-colors focus-visible:ring-2 focus-visible:outline-none"
-            >
-              <span className="block text-sm font-medium">
-                {ROLE_LABELS[account.role]}
-              </span>
-              <span className="text-muted-foreground block text-xs text-pretty">
-                {ROLE_DESCRIPTIONS[account.role]}
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
+      ) : null}
     </div>
   );
 }

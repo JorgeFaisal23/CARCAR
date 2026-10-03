@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUserAction } from "@/lib/auth/session";
 import { logAction } from "@/server/actions/audit";
-import type { ActionResult } from "@/server/actions/properties";
+import type { ActionResult } from "@/lib/action-result";
 
 /**
  * Sincronización de Airbnb — SIMULADA en esta demo.

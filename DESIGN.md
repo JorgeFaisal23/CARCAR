@@ -1,4 +1,4 @@
-# DESIGN.md — Sistema visual de CARCAR
+# DESIGN.md — Sistema visual del producto
 
 Este documento es la **fuente de verdad del frontend**. Toda pantalla, componente
 o ajuste visual se construye a partir de lo que dice aquí.
@@ -26,16 +26,16 @@ Al final hay una [lista de revisión](#15-lista-de-revisión) para PRs y agentes
 | Identidad | Qué es | Dónde vive | Dónde aparece |
 |---|---|---|---|
 | **Marca del arrendador** | Nombre, logo, color, radio y tipografía de quien renta | Tabla `Organization` → [`src/lib/brand.ts`](src/lib/brand.ts) | Toda la interfaz: panel, portal y acceso |
-| **CARCAR** | El producto | [`src/lib/app.ts`](src/lib/app.ts) (`APP.color #12263F`) | Solo en los márgenes: pie del menú, pie del portal, acceso, planes, favicon y metadatos |
+| **Producto** (`APP.name`, configurable) | El software | [`src/lib/app.ts`](src/lib/app.ts) (`NEXT_PUBLIC_APP_NAME`, `NEXT_PUBLIC_APP_COLOR`, por defecto `#12263F`) | Solo en los márgenes: pie del menú, pie del portal, acceso, planes, favicon y metadatos |
 
 - La marca del arrendador llega como variables CSS inyectadas en el render de servidor (`brandStyleSheet()`). Por eso **ningún componente conoce el color de marca**: usa `primary`, `brand-soft` y `brand-strong`.
-- CARCAR usa su propio color fijo para que no cambie con cada cliente. Su distintivo es [`AppMark`](src/components/shared/app-mark.tsx) (doble arco).
+- El producto usa su propio color para que no cambie con cada cliente. Su distintivo es [`AppMark`](src/components/shared/app-mark.tsx) (la inicial de `APP.name`). El nombre definitivo aún no existe: se usa el placeholder configurable `APP.name`. CARCAR es un cliente (una arrendadora), no el producto.
 
 ---
 
 ## 3. Color
 
-Todos los colores son tokens definidos en [`src/app/globals.css`](src/app/globals.css). **Fuera de ese archivo no se usa la paleta cruda de Tailwind** (`rose-500`, `emerald-50`, `sky-600`…) ni colores hex. La única excepción es la identidad fija de CARCAR (`app.ts`, `app-mark.tsx`, `icon.svg`, `manifest.ts`) y los preajustes de color de `brand.ts`.
+Todos los colores son tokens definidos en [`src/app/globals.css`](src/app/globals.css). **Fuera de ese archivo no se usa la paleta cruda de Tailwind** (`rose-500`, `emerald-50`, `sky-600`…) ni colores hex. La única excepción es la identidad del producto (`app.ts`, `app-mark.tsx`, `icon.tsx`, `manifest.ts`) y los preajustes de color de `brand.ts`.
 
 ### 3.1 Neutros (la base)
 
@@ -293,7 +293,7 @@ Antes de crear algo, revisa esta tabla. Los primitivos de `src/components/ui/` s
 
 Antes de dar por terminado un cambio de interfaz, revisa:
 
-- [ ] No hay colores de la paleta cruda (`emerald-`, `rose-`, `sky-`, `amber-`…) ni hex fuera de `globals.css` (salvo la identidad de CARCAR, §3).
+- [ ] No hay colores de la paleta cruda (`emerald-`, `rose-`, `sky-`, `amber-`…) ni hex fuera de `globals.css` (salvo la identidad del producto, §3).
 - [ ] No hay variantes `dark:` en las pantallas.
 - [ ] No hay tamaños de texto arbitrarios (`text-[..px]`) ni `rounded` sin sufijo.
 - [ ] Todo monto en JSX usa `<Amount>`, y las columnas de números van a la derecha con `tabular-nums`.

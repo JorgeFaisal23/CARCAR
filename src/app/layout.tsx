@@ -29,7 +29,7 @@ const sourceSans = Source_Sans_3({
 /**
  * Dos identidades conviven en los metadatos: el título es la marca del
  * arrendador —es lo que el inquilino reconoce en la pestaña— y
- * `applicationName` es CARCAR, que es el software que sirve la página. El
+ * `applicationName` es el producto (APP.name), el software que sirve la página. El
  * nombre del producto no se mete en el título para no competir con la marca.
  */
 export async function generateMetadata(): Promise<Metadata> {

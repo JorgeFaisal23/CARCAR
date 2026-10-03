@@ -6,9 +6,8 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireUserAction } from "@/lib/auth/session";
 import { logAction } from "@/server/actions/audit";
+import type { ActionResult } from "@/lib/action-result";
 
-/** Resultado uniforme de las acciones: la UI solo revisa `error`. */
-export type ActionResult = { ok?: boolean; error?: string };
 
 // ------------------------------------------------------------------ edificios
 

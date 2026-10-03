@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUserAction } from "@/lib/auth/session";
 import { periodToDate } from "@/lib/format";
 import { logAction } from "@/server/actions/audit";
-import type { ActionResult } from "@/server/actions/properties";
+import type { ActionResult } from "@/lib/action-result";
 
 const PERIOD = /^\d{4}-\d{2}$/;
 

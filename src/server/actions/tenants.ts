@@ -7,7 +7,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireUserAction } from "@/lib/auth/session";
 import { logAction } from "@/server/actions/audit";
-import type { ActionResult } from "@/server/actions/properties";
+import type { ActionResult } from "@/lib/action-result";
 
 /**
  * Alta de inquilino. Crea el perfil y, si se indicó una unidad, el contrato
@@ -21,9 +21,8 @@ const tenantSchema = z.object({
   documentId: z.string().trim().optional(),
   notes: z.string().trim().optional(),
   password: z
-    .string()
-    .min(8, "La contraseña debe tener al menos 8 caracteres.")
-    .optional(),
+    .string({ error: "Escribe una contraseña temporal." })
+    .min(8, "La contraseña debe tener al menos 8 caracteres."),
 });
 
 const leaseSchema = z.object({
@@ -98,8 +97,9 @@ export async function createTenant(
   }
 
   // La contraseña temporal permite al inquilino entrar al portal desde el día
-  // uno; en producción aquí iría un correo de invitación.
-  const passwordHash = bcrypt.hashSync(parsed.data.password ?? "demo1234", 10);
+  // uno. Nunca hay una contraseña por defecto: una conocida por todos sería
+  // una puerta abierta a cualquier cuenta nueva.
+  const passwordHash = await bcrypt.hash(parsed.data.password, 10);
 
   const tenant = await prisma.user.create({
     data: {
@@ -162,6 +162,15 @@ export async function updateTenant(
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Revisa los datos." };
   }
+
+  // La acción se puede invocar directamente con cualquier id: sin esta
+  // comprobación, alguien del equipo podría cambiar el correo del dueño y
+  // quedarse con su cuenta.
+  const tenant = await prisma.user.findFirst({
+    where: { id: tenantId, role: "TENANT" },
+    select: { id: true },
+  });
+  if (!tenant) return { error: "No se encontró al inquilino." };
 
   const clash = await prisma.user.findFirst({
     where: { email: parsed.data.email, NOT: { id: tenantId } },

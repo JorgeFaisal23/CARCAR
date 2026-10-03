@@ -20,7 +20,7 @@ import {
 import type { BorderRadius } from "@/generated/prisma/enums";
 import { cn } from "@/lib/utils";
 import { updateBrand } from "@/server/actions/brand";
-import type { ActionResult } from "@/server/actions/properties";
+import type { ActionResult } from "@/lib/action-result";
 
 const RADII: BorderRadius[] = ["SHARP", "SOFT", "ROUND"];
 const MAX_LOGO_BYTES = 300 * 1024;
