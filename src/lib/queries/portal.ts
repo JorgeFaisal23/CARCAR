@@ -10,7 +10,7 @@ import { toNumber, daysBetween } from "@/lib/format";
 export async function getPortalData(db: OrgDb, userId: string) {
   const now = new Date();
 
-  const [lease, booking, organization] = await Promise.all([
+  const [lease, booking, organization, rentCharges] = await Promise.all([
     db.lease.findFirst({
       where: { tenantId: userId, status: "ACTIVE" },
       select: {
@@ -38,21 +38,6 @@ export async function getPortalData(db: OrgDb, userId: string) {
                 contractNumber: true,
               },
             },
-          },
-        },
-        rentCharges: {
-          orderBy: { period: "desc" },
-          select: {
-            id: true,
-            period: true,
-            amount: true,
-            paidAmount: true,
-            status: true,
-            dueDate: true,
-            paidAt: true,
-            method: true,
-            reference: true,
-            receiptUrl: true,
           },
         },
       },
@@ -84,10 +69,27 @@ export async function getPortalData(db: OrgDb, userId: string) {
     db.organization.findFirst({
       select: { brandName: true, contactEmail: true, contactPhone: true },
     }),
+    // Cargos de todos sus contratos: si un contrato terminó con saldo
+    // pendiente, el inquilino lo sigue viendo.
+    db.rentCharge.findMany({
+      where: { lease: { tenantId: userId } },
+      orderBy: { period: "desc" },
+      select: {
+        id: true,
+        period: true,
+        amount: true,
+        paidAmount: true,
+        status: true,
+        dueDate: true,
+        paidAt: true,
+        method: true,
+        reference: true,
+        receiptUrl: true,
+      },
+    }),
   ]);
 
-  const charges =
-    lease?.rentCharges.map((c) => ({
+  const charges = rentCharges.map((c) => ({
       id: c.id,
       period: c.period,
       amount: toNumber(c.amount),
@@ -98,7 +100,7 @@ export async function getPortalData(db: OrgDb, userId: string) {
       method: c.method,
       reference: c.reference,
       receiptUrl: c.receiptUrl,
-    })) ?? [];
+    }));
 
   const nextCharge =
     charges

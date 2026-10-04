@@ -7,6 +7,17 @@ import { requireOrgUserAction } from "@/lib/auth/session";
 import { logAction } from "@/server/actions/audit";
 import { buildingExists, unitExists } from "@/lib/db/guards";
 import type { ActionResult } from "@/lib/action-result";
+import type { OrgDb } from "@/lib/db/scoped";
+import { limitError, type LimitedResource } from "@/lib/plans";
+
+/** Error si dar de alta uno más rebasa el plan de la arrendadora. */
+async function planLimitError(db: OrgDb, resource: Exclude<LimitedResource, "staff">) {
+  const [org, count] = await Promise.all([
+    db.organization.findFirstOrThrow({ select: { plan: true } }),
+    resource === "buildings" ? db.building.count() : db.unit.count(),
+  ]);
+  return limitError(org.plan, resource, count);
+}
 
 
 // ------------------------------------------------------------------ edificios
@@ -34,6 +45,9 @@ export async function createBuilding(
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Revisa los datos." };
   }
+
+  const overLimit = await planLimitError(db, "buildings");
+  if (overLimit) return { error: overLimit };
 
   const building = await db.building.create({
     data: { ...parsed.data, organizationId: orgId },
@@ -91,6 +105,9 @@ export async function createUnit(
   if (!(await buildingExists(db, parsed.data.buildingId))) {
     return { error: "No se encontró la propiedad." };
   }
+
+  const overLimit = await planLimitError(db, "units");
+  if (overLimit) return { error: overLimit };
 
   // El identificador debe ser único dentro del edificio: dos "101" en el mismo
   // inmueble harían imposible saber de cuál se habla.

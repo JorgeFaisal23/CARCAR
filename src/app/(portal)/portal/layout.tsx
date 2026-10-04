@@ -4,6 +4,7 @@ import { PortalNav } from "@/components/layout/portal-nav";
 import { AppSignature } from "@/components/shared/app-signature";
 import { requireOrgUser } from "@/lib/auth/session";
 import { requireCurrentOrg } from "@/lib/org";
+import { sweepOrgSafely } from "@/lib/db/sweep";
 import { SessionMonitor } from "@/components/layout/session-monitor";
 
 /**
@@ -16,6 +17,8 @@ export default async function PortalLayout({
   children: React.ReactNode;
 }) {
   const { session } = await requireOrgUser(["TENANT"]);
+  // Contratos vencidos y cobros atrasados se marcan al abrir (máx. 1 vez/hora).
+  await sweepOrgSafely(session.orgId);
   const org = await requireCurrentOrg();
 
   return (

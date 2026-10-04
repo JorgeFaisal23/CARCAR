@@ -26,6 +26,7 @@ import { ButtonLink } from "@/components/shared/button-link";
 import { ReceiptBadge } from "@/components/payments/receipt-viewer";
 import { Callout } from "@/components/shared/callout";
 import { TenantControls } from "./tenant-controls";
+import { LeaseActions } from "@/components/leases/lease-actions";
 import {
   Card,
   CardContent,
@@ -79,7 +80,7 @@ export default async function TenantDetailPage({
   const editable = canEdit(session.role);
   const lease = tenant.activeLease;
   const pendingCharges =
-    lease?.charges.filter((c) => c.status !== "PAID") ?? [];
+    tenant.charges.filter((c) => c.status !== "PAID");
 
   return (
     <>
@@ -100,7 +101,7 @@ export default async function TenantDetailPage({
         }
         action={
           editable && !lease ? (
-            <ButtonLink href="/inquilinos/nuevo">Asignar unidad</ButtonLink>
+            <ButtonLink href={`/inquilinos/asignar?inquilino=${tenant.id}`}>Asignar unidad</ButtonLink>
           ) : null
         }
       />
@@ -200,6 +201,16 @@ export default async function TenantDetailPage({
                 )
               ) : null}
             </div>
+            {editable && lease ? (
+              <LeaseActions
+                lease={{
+                  id: lease.id,
+                  endDate: lease.endDate,
+                  rentAmount: lease.rentAmount,
+                  tenantName: tenant.name,
+                }}
+              />
+            ) : null}
           </CardHeader>
           <CardContent>
             {!lease ? (
@@ -278,7 +289,7 @@ export default async function TenantDetailPage({
                   : `${pendingCharges.length} ${pendingCharges.length === 1 ? "cargo pendiente" : "cargos pendientes"}.`}
               </CardDescription>
             </div>
-            {editable && lease ? (
+            {editable && pendingCharges.length > 0 ? (
               <ButtonLink href="/pagos" variant="outline" size="sm">
                 <CreditCard className="size-4" aria-hidden />
                 Registrar pago
@@ -287,7 +298,7 @@ export default async function TenantDetailPage({
           </div>
         </CardHeader>
         <CardContent>
-          {!lease || lease.charges.length === 0 ? (
+          {tenant.charges.length === 0 ? (
             <EmptyState
               icon={CreditCard}
               title="Sin cargos registrados"
@@ -308,7 +319,7 @@ export default async function TenantDetailPage({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {lease.charges.map((charge) => (
+                {tenant.charges.map((charge) => (
                   <TableRow key={charge.id}>
                     <TableCell className="font-medium">
                       {periodLabel(charge.period)}
@@ -323,6 +334,11 @@ export default async function TenantDetailPage({
                       {charge.paidAt
                         ? `${shortDate(charge.paidAt)}${charge.method ? ` · ${charge.method}` : ""}`
                         : "—"}
+                      {charge.status === "PARTIAL" ? (
+                        <span className="block">
+                          Abonado <Amount value={charge.paidAmount} />
+                        </span>
+                      ) : null}
                     </TableCell>
                     <TableCell className="text-right">
                       <StatusBadge tone={CHARGE_STATUS_TONES[charge.status]}>
@@ -364,6 +380,7 @@ export default async function TenantDetailPage({
                   <span className="text-muted-foreground text-xs tabular-nums">
                     {shortDate(past.startDate)} — {shortDate(past.endDate)} ·{" "}
                     {LEASE_STATUS_LABELS[past.status]}
+                    {past.endReason ? ` · ${past.endReason}` : ""}
                   </span>
                 </li>
               ))}

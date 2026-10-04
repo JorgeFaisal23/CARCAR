@@ -7,6 +7,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { requireOrgUser } from "@/lib/auth/session";
 import { requireCurrentOrg } from "@/lib/org";
+import { sweepOrgSafely } from "@/lib/db/sweep";
 import { ROLE_LABELS } from "@/lib/labels";
 import { ReadOnlyNotice } from "@/components/layout/read-only-notice";
 import { SessionMonitor } from "@/components/layout/session-monitor";
@@ -17,6 +18,8 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const { session } = await requireOrgUser(["OWNER", "ADMIN", "VIEWER"]);
+  // Contratos vencidos y cobros atrasados se marcan al abrir (máx. 1 vez/hora).
+  await sweepOrgSafely(session.orgId);
   const org = await requireCurrentOrg();
 
   return (

@@ -87,6 +87,12 @@ export default async function PortalPaymentsPage() {
                       {charge.method ? ` · ${charge.method}` : ""}
                       {charge.reference ? ` · ${charge.reference}` : ""}
                     </p>
+                    {charge.status === "PARTIAL" ? (
+                      <p className="text-muted-foreground text-xs">
+                        Abonado <Amount value={charge.paidAmount} /> · falta{" "}
+                        <Amount value={charge.amount - charge.paidAmount} />
+                      </p>
+                    ) : null}
                   </div>
                   <div className="flex items-center gap-2">
                     <Amount value={charge.amount} className="text-sm" />

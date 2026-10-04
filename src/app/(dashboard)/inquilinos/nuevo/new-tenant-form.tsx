@@ -11,6 +11,7 @@ import { Separator } from "@/components/ui/separator";
 import { createTenant } from "@/server/actions/tenants";
 import type { ActionResult } from "@/lib/action-result";
 import { money } from "@/lib/format";
+import { LeaseTermsFields } from "@/components/leases/lease-terms-fields";
 
 function Submit() {
   const { pending } = useFormStatus();
@@ -19,13 +20,6 @@ function Submit() {
       {pending ? "Guardando…" : "Guardar inquilino"}
     </Button>
   );
-}
-
-/** Hoy en formato YYYY-MM-DD y la misma fecha dentro de N meses. */
-function isoToday(monthsAhead = 0) {
-  const date = new Date();
-  date.setMonth(date.getMonth() + monthsAhead);
-  return date.toISOString().slice(0, 10);
 }
 
 export function NewTenantForm({
@@ -132,71 +126,7 @@ export function NewTenantForm({
           </NativeSelect>
         </Field>
 
-        {unitId ? (
-          <div className="space-y-4 rounded-lg border p-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Inicio del contrato" htmlFor="startDate" required>
-                <Input
-                  id="startDate"
-                  name="startDate"
-                  type="date"
-                  required
-                  defaultValue={isoToday()}
-                />
-              </Field>
-              <Field label="Vencimiento" htmlFor="endDate" required>
-                <Input
-                  id="endDate"
-                  name="endDate"
-                  type="date"
-                  required
-                  defaultValue={isoToday(12)}
-                />
-              </Field>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-3">
-              <Field label="Renta mensual" htmlFor="rentAmount" required>
-                <Input
-                  id="rentAmount"
-                  name="rentAmount"
-                  type="number"
-                  min={0}
-                  step={50}
-                  required
-                  defaultValue={selectedUnit?.baseRent}
-                  className="tabular-nums"
-                />
-              </Field>
-              <Field label="Depósito" htmlFor="depositAmount">
-                <Input
-                  id="depositAmount"
-                  name="depositAmount"
-                  type="number"
-                  min={0}
-                  step={50}
-                  defaultValue={selectedUnit?.baseRent}
-                  className="tabular-nums"
-                />
-              </Field>
-              <Field
-                label="Día de pago"
-                htmlFor="paymentDay"
-                hint="Del 1 al 28."
-              >
-                <Input
-                  id="paymentDay"
-                  name="paymentDay"
-                  type="number"
-                  min={1}
-                  max={28}
-                  defaultValue={1}
-                  className="tabular-nums"
-                />
-              </Field>
-            </div>
-          </div>
-        ) : null}
+        {unitId ? <LeaseTermsFields key={unitId} baseRent={selectedUnit?.baseRent} /> : null}
       </div>
 
       <FormError message={state.error} />

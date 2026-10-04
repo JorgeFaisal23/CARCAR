@@ -92,6 +92,29 @@ la cuenta de la plataforma:
   `APP_URL` (base de los enlaces; obligatoria en producción para mandarlos).
   Ver `.env.example`.
 
+## Contratos y cobros
+
+- **Contrato nuevo:** al dar de alta a un inquilino o, para uno ya registrado,
+  desde su ficha (*Asignar unidad*) o desde una unidad libre
+  (`/inquilinos/asignar`). Se rechaza si la unidad está en mantenimiento, ya
+  tiene contrato vigente o tiene reservas de corta estancia en esas fechas.
+- **Renovar:** nuevo vencimiento y, si cambia, renta nueva para los cargos que
+  aún no se generan.
+- **Terminar:** con fecha de hoy o anterior termina ya y la unidad queda libre;
+  con fecha futura, termina solo ese día. Se borran los cargos posteriores sin
+  pagos; los adeudos se conservan y siguen visibles en la ficha y el portal.
+- **Cancelar:** solo sin pagos registrados (capturas por error).
+- **Vencimientos automáticos:** al abrir el panel o el portal (máximo una vez
+  por hora por arrendadora) los contratos vencidos se terminan y los cobros
+  pendientes con fecha pasada se marcan vencidos (`src/lib/db/sweep.ts`). No
+  hace falta cron.
+- **Pagos parciales:** cada pago es una fila de `RentPayment`; el cargo guarda
+  el resumen (abonado, estado y datos del último pago). No se puede pagar más
+  de lo que falta. *Deshacer* borra los pagos del cargo, con confirmación.
+- **Límites del plan gratuito:** 2 propiedades, 20 unidades y 1 usuario de
+  equipo además del dueño (`src/lib/plans.ts`). Bajar de plan no borra nada.
+  El uso se ve en `/premium`.
+
 ## Varias arrendadoras en la misma app
 
 Cada tabla con datos de una arrendadora lleva `organizationId`. Las páginas y

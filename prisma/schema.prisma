@@ -66,6 +66,7 @@ model Organization {
   serviceCharges    ServiceCharge[]
   leases            Lease[]
   rentCharges       RentCharge[]
+  rentPayments      RentPayment[]
   bookings          Booking[]
   airbnbConnections AirbnbConnection[]
   auditLogs         AuditLog[]
@@ -103,10 +104,12 @@ model User {
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
-  leases     Lease[]
-  bookings   Booking[]
-  auditLogs  AuditLog[]
-  authTokens AuthToken[]
+  leases           Lease[]
+  bookings         Booking[]
+  auditLogs        AuditLog[]
+  authTokens       AuthToken[]
+  /// Pagos que esta persona registró en Cobros.
+  paymentsRecorded RentPayment[] @relation("PaymentRecordedBy")
 
   @@index([organizationId, role])
 }
@@ -303,6 +306,10 @@ model Lease {
   depositAmount  Decimal?     @db.Decimal(12, 2)
   paymentDay     Int          @default(1)
   status         LeaseStatus  @default(ACTIVE)
+  /// Cuándo se terminó o canceló (puede ser antes de endDate).
+  endedAt        DateTime?
+  /// Motivo de la terminación o cancelación, o "Vencimiento" si fue automática.
+  endReason      String?
   notes          String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
@@ -324,21 +331,45 @@ model RentCharge {
   period         String // "2026-08"
   dueDate        DateTime
   amount         Decimal      @db.Decimal(12, 2)
+  /// Resumen de los pagos (RentPayment): suma, estado y datos del último
+  /// pago. Se recalcula en la misma transacción que registra o borra un pago.
   paidAmount     Decimal      @default(0) @db.Decimal(12, 2)
   status         ChargeStatus @default(PENDING)
   paidAt         DateTime?
   method         String?
   reference      String?
-  /// Comprobante del pago (foto del recibo o de la transferencia).
-  /// Por ahora se guarda como data URL; debe moverse a un almacenamiento de
-  /// archivos y dejar aquí solo la ruta.
+  /// Comprobante del último pago (ver RentPayment.receiptUrl).
   receiptUrl     String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
+  payments RentPayment[]
+
   @@unique([leaseId, period])
   @@index([organizationId, period])
   @@index([organizationId, status, dueDate])
+}
+
+/// Un pago (total o parcial) de un cargo de renta.
+model RentPayment {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  rentChargeId   String
+  rentCharge     RentCharge   @relation(fields: [rentChargeId], references: [id], onDelete: Cascade)
+  amount         Decimal      @db.Decimal(12, 2)
+  paidAt         DateTime
+  method         String
+  reference      String?
+  /// Foto del recibo o de la transferencia. Por ahora data URL; debe moverse a
+  /// un almacenamiento de archivos y dejar aquí solo la ruta.
+  receiptUrl     String?
+  recordedById   String?
+  recordedBy     User?        @relation("PaymentRecordedBy", fields: [recordedById], references: [id], onDelete: SetNull)
+  createdAt      DateTime     @default(now())
+
+  @@index([rentChargeId])
+  @@index([organizationId, paidAt])
 }
 
 // ---------------------------------------------------------------- Reservas

@@ -244,6 +244,22 @@ export default async function PortalHomePage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Un contrato terminado puede dejar saldo: se sigue mostrando. */}
+      {!data.lease && data.balance > 0 ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Saldo pendiente</CardTitle>
+            <CardDescription>De un contrato anterior.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap items-center justify-between gap-4">
+            <Amount value={data.balance} className="text-2xl" tone="danger" />
+            <ButtonLink href="/portal/pagos" variant="outline" size="sm">
+              Ver detalle
+            </ButtonLink>
+          </CardContent>
+        </Card>
+      ) : null}
     </>
   );
 }

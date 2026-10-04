@@ -22,6 +22,7 @@ import { APP } from "@/lib/app";
 import { requireOrgUser } from "@/lib/auth/session";
 import { requireCurrentOrg } from "@/lib/org";
 import { cn } from "@/lib/utils";
+import { PLAN_LIMITS } from "@/lib/plans";
 
 export const metadata: Metadata = { title: "Planes" };
 
@@ -68,10 +69,16 @@ const FEATURES: { group: string; items: Feature[] }[] = [
 ];
 
 export default async function PremiumPage() {
-  const { session } = await requireOrgUser(["OWNER", "ADMIN"]);
+  const { session, db } = await requireOrgUser(["OWNER", "ADMIN"]);
   const org = await requireCurrentOrg();
   const isPremium = org.plan === "PREMIUM";
   const supportEmail = process.env.SUPPORT_EMAIL?.trim();
+  const [buildings, units, staff] = await Promise.all([
+    db.building.count(),
+    db.unit.count(),
+    db.user.count({ where: { role: { in: ["ADMIN", "VIEWER"] }, active: true } }),
+  ]);
+  const usage = { buildings, units, staff };
 
   return (
     <>
@@ -99,6 +106,34 @@ export default async function PremiumPage() {
           </p>
         </div>
       ) : null}
+
+      {isPremium ? null : (
+        <Card>
+          <CardHeader>
+            <CardTitle>Tu uso del plan gratuito</CardTitle>
+            <CardDescription>
+              Al llegar al límite no se borra nada: solo no se pueden dar de alta más.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <dl className="grid gap-4 sm:grid-cols-3">
+              {[
+                { label: "Propiedades", used: usage.buildings, limit: PLAN_LIMITS.FREE.buildings },
+                { label: "Unidades", used: usage.units, limit: PLAN_LIMITS.FREE.units },
+                { label: "Usuarios de equipo", used: usage.staff, limit: PLAN_LIMITS.FREE.staff },
+              ].map((item) => (
+                <div key={item.label}>
+                  <dt className="text-muted-foreground text-sm">{item.label}</dt>
+                  <dd className="mt-1 text-2xl font-semibold tabular-nums">
+                    {item.used}
+                    <span className="text-muted-foreground text-base font-normal"> de {item.limit}</span>
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <PlanCard

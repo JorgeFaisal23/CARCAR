@@ -392,10 +392,15 @@ export default async function UnitPage({
                   description="Asigna un inquilino para registrar la vigencia, la renta y empezar a generar los cobros mensuales."
                   actions={
                     editable ? (
-                      <ButtonLink href={`/inquilinos/nuevo?unidad=${unit.id}`} size="sm">
-                        <UserPlus className="size-4" aria-hidden />
-                        Asignar inquilino
-                      </ButtonLink>
+                      <>
+                        <ButtonLink href={`/inquilinos/asignar?unidad=${unit.id}`} size="sm">
+                          <UserPlus className="size-4" aria-hidden />
+                          Inquilino registrado
+                        </ButtonLink>
+                        <ButtonLink href={`/inquilinos/nuevo?unidad=${unit.id}`} size="sm" variant="outline">
+                          Inquilino nuevo
+                        </ButtonLink>
+                      </>
                     ) : undefined
                   }
                 />

@@ -18,24 +18,119 @@ import { Input } from "@/components/ui/input";
 import { Field, NativeSelect } from "@/components/shared/form-field";
 import { money } from "@/lib/format";
 import { compressImage, dataUrlBytes } from "@/lib/images";
-import { markChargePaid, markChargeUnpaid } from "@/server/actions/payments";
+import { markChargeUnpaid, registerPayment } from "@/server/actions/payments";
+import { remainingOf } from "@/lib/payments";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const METHODS = ["Transferencia", "Efectivo", "Depósito", "Tarjeta", "Otro"];
 
-/** Registrar o deshacer el pago de un cargo de renta. */
+/**
+ * Registrar un pago (total o parcial) de un cargo de renta, o deshacer los
+ * pagos registrados por error.
+ */
 export function PaymentRowActions({
   chargeId,
   tenantName,
   amount,
-  isPaid,
+  paidAmount,
 }: {
   chargeId: string;
   tenantName: string;
   amount: number;
-  isPaid: boolean;
+  paidAmount: number;
+}) {
+  const remaining = remainingOf(amount, paidAmount);
+  return (
+    <div className="flex items-center gap-1">
+      {paidAmount > 0 ? <UndoPayments chargeId={chargeId} tenantName={tenantName} /> : null}
+      {remaining > 0 ? (
+        <RegisterPaymentDialog
+          chargeId={chargeId}
+          tenantName={tenantName}
+          amount={amount}
+          remaining={remaining}
+          partial={paidAmount > 0}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+/** Deshacer pide confirmación: borra los pagos y sus comprobantes. */
+function UndoPayments({ chargeId, tenantName }: { chargeId: string; tenantName: string }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [pending, startTransition] = useTransition();
+
+  return (
+    <AlertDialog open={open} onOpenChange={setOpen}>
+      <AlertDialogTrigger
+        render={
+          <Button variant="ghost" size="sm" disabled={pending}>
+            <Undo2 className="size-4" aria-hidden />
+            <span className="sr-only sm:not-sr-only">Deshacer</span>
+          </Button>
+        }
+      />
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>¿Deshacer los pagos?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Se borran los pagos registrados de {tenantName} en este cargo, con
+            sus comprobantes. Úsalo solo si se registraron por error.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <Button
+            variant="destructive"
+            disabled={pending}
+            onClick={() =>
+              startTransition(async () => {
+                const result = await markChargeUnpaid(chargeId);
+                if (result.error) {
+                  toast.error(result.error);
+                  return;
+                }
+                setOpen(false);
+                toast.success("Pagos deshechos.");
+                router.refresh();
+              })
+            }
+          >
+            {pending ? "Deshaciendo…" : "Deshacer pagos"}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+function RegisterPaymentDialog({
+  chargeId,
+  tenantName,
+  amount,
+  remaining,
+  partial,
+}: {
+  chargeId: string;
+  tenantName: string;
+  amount: number;
+  remaining: number;
+  partial: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [paid, setPaid] = useState(String(remaining));
   const [method, setMethod] = useState(METHODS[0]);
   const [reference, setReference] = useState("");
   const [receipt, setReceipt] = useState<string | null>(null);
@@ -46,6 +141,7 @@ export function PaymentRowActions({
   const fileRef = useRef<HTMLInputElement>(null);
 
   const reset = () => {
+    setPaid(String(remaining));
     setMethod(METHODS[0]);
     setReference("");
     setReceipt(null);
@@ -77,29 +173,6 @@ export function PaymentRowActions({
     }
   };
 
-  if (isPaid) {
-    return (
-      <Button
-        variant="ghost"
-        size="sm"
-        disabled={pending}
-        onClick={() =>
-          startTransition(async () => {
-            const result = await markChargeUnpaid(chargeId);
-            if (result.error) toast.error(result.error);
-            else {
-              toast.success("Pago deshecho.");
-              router.refresh();
-            }
-          })
-        }
-      >
-        <Undo2 className="size-4" aria-hidden />
-        <span className="sr-only sm:not-sr-only">Deshacer</span>
-      </Button>
-    );
-  }
-
   return (
     <Dialog
       open={open}
@@ -112,7 +185,7 @@ export function PaymentRowActions({
         render={
           <Button size="sm">
             <Check className="size-4" aria-hidden />
-            <span className="sr-only sm:not-sr-only">Registrar pago</span>
+            <span className="sr-only sm:not-sr-only">{partial ? "Abonar" : "Registrar pago"}</span>
           </Button>
         }
       />
@@ -120,11 +193,30 @@ export function PaymentRowActions({
         <DialogHeader>
           <DialogTitle>Registrar pago</DialogTitle>
           <DialogDescription>
-            {tenantName} · {money(amount)}
+            {tenantName} · cargo de {money(amount)}
+            {partial ? ` · faltan ${money(remaining)}` : ""}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
+          <Field
+            label="Monto recibido"
+            htmlFor={`paid-${chargeId}`}
+            hint="Si pagó solo una parte, escribe lo que recibiste; el resto queda pendiente."
+          >
+            <Input
+              id={`paid-${chargeId}`}
+              type="number"
+              inputMode="decimal"
+              min="0.01"
+              step="0.01"
+              max={remaining}
+              value={paid}
+              onChange={(e) => setPaid(e.target.value)}
+              className="text-right tabular-nums"
+            />
+          </Field>
+
           <Field label="Forma de pago" htmlFor={`method-${chargeId}`}>
             <NativeSelect
               id={`method-${chargeId}`}
@@ -257,8 +349,9 @@ export function PaymentRowActions({
             disabled={pending || processing}
             onClick={() =>
               startTransition(async () => {
-                const result = await markChargePaid({
+                const result = await registerPayment({
                   chargeId,
+                  amount: Number(paid),
                   method,
                   reference: reference || undefined,
                   receiptUrl: receipt ?? undefined,
@@ -269,7 +362,11 @@ export function PaymentRowActions({
                 }
                 setOpen(false);
                 reset();
-                toast.success(`Pago de ${tenantName} registrado.`);
+                toast.success(
+                  Number(paid) < remaining
+                    ? `Abono de ${tenantName} registrado.`
+                    : `Pago de ${tenantName} registrado.`,
+                );
                 router.refresh();
               })
             }

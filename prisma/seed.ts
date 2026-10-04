@@ -642,6 +642,7 @@ async function seedCasaNorte(orgId: string, passwordHash: string) {
 async function main() {
   console.log("Limpiando datos anteriores…");
   await prisma.auditLog.deleteMany();
+  await prisma.rentPayment.deleteMany();
   await prisma.rentCharge.deleteMany();
   await prisma.lease.deleteMany();
   await prisma.booking.deleteMany();
@@ -697,6 +698,22 @@ async function main() {
     },
   });
   await seedCasaNorte(norte.id, passwordHash);
+
+  // Cada cargo sembrado como pagado recibe su pago (igual que hace la
+  // migración de pagos parciales con los datos existentes).
+  const paidCharges = await prisma.rentCharge.findMany({ where: { paidAmount: { gt: 0 } } });
+  await prisma.rentPayment.createMany({
+    data: paidCharges.map((c) => ({
+      organizationId: c.organizationId,
+      rentChargeId: c.id,
+      amount: c.paidAmount,
+      paidAt: c.paidAt ?? c.updatedAt,
+      method: c.method ?? "Sin especificar",
+      reference: c.reference,
+      receiptUrl: c.receiptUrl,
+    })),
+  });
+  console.log(`Pagos: ${paidCharges.length}`);
 
   console.log(`\nListo. Contraseña para todas las cuentas: ${PASSWORD}`);
   console.log(`  ${superadminEmail.padEnd(20)} Superadministrador (plataforma)`);

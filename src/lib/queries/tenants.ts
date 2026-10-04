@@ -80,6 +80,7 @@ export async function getTenantDetail(db: OrgDb, tenantId: string) {
           status: true,
           startDate: true,
           endDate: true,
+          endReason: true,
           rentAmount: true,
           depositAmount: true,
           paymentDay: true,
@@ -154,20 +155,28 @@ export async function getTenantDetail(db: OrgDb, tenantId: string) {
             contractNumber: s.contractNumber,
             providerName: s.providerName,
           })),
-          charges: activeLease.rentCharges.map((c) => ({
-            id: c.id,
-            period: c.period,
-            amount: toNumber(c.amount),
-            paidAmount: toNumber(c.paidAmount),
-            status: c.status,
-            dueDate: c.dueDate,
-            paidAt: c.paidAt,
-            method: c.method,
-            reference: c.reference,
-            receiptUrl: c.receiptUrl,
-          })),
         }
       : null,
+    // Cargos de todos sus contratos: un adeudo no desaparece de la ficha
+    // porque el contrato haya terminado.
+    charges: tenant.leases
+      .flatMap((l) =>
+        l.rentCharges.map((c) => ({
+          id: c.id,
+          period: c.period,
+          amount: toNumber(c.amount),
+          paidAmount: toNumber(c.paidAmount),
+          status: c.status,
+          dueDate: c.dueDate,
+          paidAt: c.paidAt,
+          method: c.method,
+          reference: c.reference,
+          receiptUrl: c.receiptUrl,
+          unitCode: l.unit.code,
+          current: l.status === "ACTIVE",
+        })),
+      )
+      .sort((x, y) => y.period.localeCompare(x.period)),
     pastLeases: tenant.leases
       .filter((l) => l.status !== "ACTIVE")
       .map((l) => ({
@@ -175,6 +184,7 @@ export async function getTenantDetail(db: OrgDb, tenantId: string) {
         status: l.status,
         startDate: l.startDate,
         endDate: l.endDate,
+        endReason: l.endReason,
         unitCode: l.unit.code,
         buildingName: l.unit.building.name,
       })),
@@ -203,4 +213,13 @@ export async function getAssignableUnits(db: OrgDb) {
     buildingName: unit.building.name,
     baseRent: toNumber(unit.baseRent),
   }));
+}
+
+/** Inquilinos activos sin contrato vigente: a quiénes se les puede asignar unidad. */
+export async function getTenantsWithoutLease(db: OrgDb) {
+  return db.user.findMany({
+    where: { role: "TENANT", active: true, leases: { none: { status: "ACTIVE" } } },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, email: true },
+  });
 }

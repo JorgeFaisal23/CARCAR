@@ -38,7 +38,7 @@ vi.mock("next/navigation", () => ({
   },
 }));
 
-const { markChargePaid, markChargeUnpaid } = await import("@/server/actions/payments");
+const { registerPayment, markChargeUnpaid, deletePayment } = await import("@/server/actions/payments");
 const { createUnit, updateUnit, updateServiceAccount, createUnitServiceAccount } =
   await import("@/server/actions/properties");
 const { setServiceAmount } = await import("@/server/actions/services");
@@ -56,7 +56,7 @@ let b: OrgFixture;
 async function snapshotB() {
   const [charge, unit, account, serviceCharges, tenant, owner, connection, org, buildings, units, users] =
     await Promise.all([
-      prisma.rentCharge.findUniqueOrThrow({ where: { id: b.charge.id } }),
+      prisma.rentCharge.findUniqueOrThrow({ where: { id: b.charge.id }, include: { payments: true } }),
       prisma.unit.findUniqueOrThrow({ where: { id: b.unit.id } }),
       prisma.serviceAccount.findUniqueOrThrow({ where: { id: b.account.id } }),
       prisma.serviceCharge.findMany({ where: { serviceAccountId: b.account.id } }),
@@ -104,7 +104,8 @@ afterAll(async () => {
 
 describe("server actions con ids de otra arrendadora", () => {
   it("cobros", async () => {
-    expect(await markChargePaid({ chargeId: b.charge.id, method: "Efectivo" })).toHaveProperty("error");
+    expect(await registerPayment({ chargeId: b.charge.id, amount: 100, method: "Efectivo" })).toHaveProperty("error");
+    expect(await deletePayment(b.payment.id)).toHaveProperty("error");
     expect(await markChargeUnpaid(b.charge.id)).toHaveProperty("error");
   });
 

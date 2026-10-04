@@ -177,6 +177,12 @@ export default async function PaymentsPage({
                           ? ` · pagado el ${shortDate(charge.paidAt)}${charge.method ? ` (${charge.method})` : ""}`
                           : ""}
                       </p>
+                      {charge.status === "PARTIAL" ? (
+                        <p className="text-muted-foreground text-xs">
+                          Abonado <Amount value={charge.paidAmount} /> de{" "}
+                          <Amount value={charge.amount} />
+                        </p>
+                      ) : null}
                     </div>
 
                     <div className="flex items-center justify-between gap-3 sm:justify-end">
@@ -196,7 +202,7 @@ export default async function PaymentsPage({
                           chargeId={charge.id}
                           tenantName={charge.tenantName}
                           amount={charge.amount}
-                          isPaid={charge.status === "PAID"}
+                          paidAmount={charge.paidAmount}
                         />
                       ) : null}
                     </div>

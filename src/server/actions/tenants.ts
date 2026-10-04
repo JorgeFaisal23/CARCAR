@@ -7,10 +7,16 @@ import { z } from "zod";
 import { requireOrgUserAction } from "@/lib/auth/session";
 import { logAction } from "@/server/actions/audit";
 import { isEmailInUse } from "@/lib/db/accounts";
-import { unitExists } from "@/lib/db/guards";
 import type { OrgDb } from "@/lib/db/scoped";
 import type { ActionResult } from "@/lib/action-result";
 import { canEmailLinks } from "@/server/auth/links";
+import {
+  leaseData as buildLease,
+  parseDateInput,
+  readLeaseTerms,
+  unitAvailabilityError,
+  type LeaseTerms,
+} from "@/server/actions/lease-rules";
 import { deliverAccess, unusablePasswordHash, type AccessDelivery } from "@/server/auth/access";
 
 /**
@@ -28,14 +34,6 @@ const tenantSchema = z.object({
   password: z.string().min(8, "La contraseña temporal debe tener al menos 8 caracteres.").optional(),
 });
 
-const leaseSchema = z.object({
-  unitId: z.string().min(1),
-  startDate: z.string().min(1, "Indica el inicio del contrato."),
-  endDate: z.string().min(1, "Indica el vencimiento del contrato."),
-  rentAmount: z.coerce.number().min(0),
-  depositAmount: z.coerce.number().min(0).optional(),
-  paymentDay: z.coerce.number().int().min(1).max(28),
-});
 
 export async function createTenant(
   _prev: ActionResult,
@@ -62,42 +60,21 @@ export async function createTenant(
   }
 
   const unitId = String(formData.get("unitId") ?? "");
-  let leaseData: z.infer<typeof leaseSchema> | null = null;
+  let terms: LeaseTerms | null = null;
 
   if (unitId) {
-    const leaseParsed = leaseSchema.safeParse({
+    const parsedTerms = readLeaseTerms(formData);
+    if (!parsedTerms.success) {
+      return { error: parsedTerms.error.issues[0]?.message ?? "Revisa los datos del contrato." };
+    }
+    const unavailable = await unitAvailabilityError(
+      db,
       unitId,
-      startDate: formData.get("startDate"),
-      endDate: formData.get("endDate"),
-      rentAmount: formData.get("rentAmount"),
-      depositAmount: formData.get("depositAmount") || undefined,
-      paymentDay: formData.get("paymentDay") || 1,
-    });
-
-    if (!leaseParsed.success) {
-      return {
-        error: leaseParsed.error.issues[0]?.message ?? "Revisa los datos del contrato.",
-      };
-    }
-
-    if (new Date(leaseParsed.data.endDate) <= new Date(leaseParsed.data.startDate)) {
-      return { error: "El vencimiento debe ser posterior al inicio del contrato." };
-    }
-
-    if (!(await unitExists(db, unitId))) {
-      return { error: "No se encontró la unidad." };
-    }
-
-    // Una unidad no puede tener dos contratos vigentes a la vez.
-    const busy = await db.lease.findFirst({
-      where: { unitId, status: "ACTIVE" },
-      select: { id: true },
-    });
-    if (busy) {
-      return { error: "Esa unidad ya tiene un contrato vigente." };
-    }
-
-    leaseData = leaseParsed.data;
+      parseDateInput(parsedTerms.data.startDate),
+      parseDateInput(parsedTerms.data.endDate),
+    );
+    if (unavailable) return { error: unavailable };
+    terms = parsedTerms.data;
   }
 
   // Dos formas de darle acceso al portal: una contraseña temporal que el
@@ -129,23 +106,11 @@ export async function createTenant(
       },
     });
 
-    if (leaseData) {
-      await tx.lease.create({
-        data: {
-          organizationId: orgId,
-          unitId: leaseData.unitId,
-          tenantId: created.id,
-          startDate: new Date(leaseData.startDate),
-          endDate: new Date(leaseData.endDate),
-          rentAmount: leaseData.rentAmount,
-          depositAmount: leaseData.depositAmount ?? null,
-          paymentDay: leaseData.paymentDay,
-          status: "ACTIVE",
-        },
-      });
+    if (terms) {
+      await tx.lease.create({ data: buildLease(orgId, unitId, created.id, terms) });
 
       await tx.unit.update({
-        where: { id: leaseData.unitId },
+        where: { id: unitId },
         data: { status: "OCCUPIED" },
       });
     }

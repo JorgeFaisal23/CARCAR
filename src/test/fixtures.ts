@@ -59,6 +59,26 @@ export async function createOrgFixture(label: string) {
       amount: 5000,
     },
   });
+  const paidCharge = await prisma.rentCharge.create({
+    data: {
+      organizationId,
+      leaseId: lease.id,
+      period: "2026-08",
+      dueDate: new Date("2026-08-05"),
+      amount: 5000,
+      paidAmount: 5000,
+      status: "PAID",
+    },
+  });
+  const payment = await prisma.rentPayment.create({
+    data: {
+      organizationId,
+      rentChargeId: paidCharge.id,
+      amount: 5000,
+      paidAt: new Date("2026-08-04"),
+      method: "Transferencia",
+    },
+  });
   const account = await prisma.serviceAccount.create({
     data: { organizationId, type: "ELECTRICITY", scope: "UNIT", unitId: unit.id },
   });
@@ -89,6 +109,8 @@ export async function createOrgFixture(label: string) {
     freeUnit,
     lease,
     charge,
+    paidCharge,
+    payment,
     account,
     serviceCharge,
     connection,
@@ -104,6 +126,7 @@ export async function deleteOrgFixtures(...fixtures: (OrgFixture | undefined)[])
   if (ids.length === 0) return;
   const where = { organizationId: { in: ids } };
   await prisma.auditLog.deleteMany({ where });
+  await prisma.rentPayment.deleteMany({ where });
   await prisma.rentCharge.deleteMany({ where });
   await prisma.serviceCharge.deleteMany({ where });
   await prisma.booking.deleteMany({ where });
