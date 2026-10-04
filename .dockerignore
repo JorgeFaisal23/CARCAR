@@ -1,0 +1,20 @@
+# Lo que no entra al contexto de build de Docker.
+node_modules
+.next
+.git
+.claude
+.windsurf
+.agents
+.vscode
+.idea
+docs/internos
+src/generated
+coverage
+*.log
+tsconfig.tsbuildinfo
+
+# Secretos y configuración local: en el contenedor las variables llegan por
+# el entorno (env_file de docker compose).
+.env
+.env.*
+!.env.example

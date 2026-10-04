@@ -232,37 +232,55 @@ src/
   almacenamiento de archivos (Vercel Blob o S3) y dejar en la base solo la ruta.
 - **Todos los datos son ficticios.**
 
-## Despliegue en Vercel
+## Despliegue con Docker (VPS)
 
-1. Sube el repositorio a GitHub e impórtalo en Vercel.
-2. Configura `DATABASE_URL`, `DIRECT_URL` y `AUTH_SECRET` en el proyecto.
-3. El `postinstall` ya ejecuta `prisma generate`. Las migraciones se aplican
-   con `npm run db:deploy` y los datos de demostración con `npm run db:seed`.
-
-## Despliegue en Render
-
-El repositorio incluye [`render.yaml`](render.yaml), así que no hay que
-configurar nada a mano:
-
-1. En Render: **New > Blueprint**, elige el repositorio y aplica el blueprint.
-2. Render pedirá `DATABASE_URL`, `DIRECT_URL` y `AUTH_SECRET` (están marcadas
-   `sync: false` para que los secretos no vivan en el repositorio).
-3. Construye con `npm ci && npx prisma migrate deploy && npm run build` y
-   arranca con `npm run start`. El `postinstall` genera el cliente de Prisma;
-   `next start` escucha en el `PORT` que asigna Render.
-
-El build aplica las migraciones pendientes. Una base creada antes de que
-existiera `prisma/migrations` (la que se mantenía con `db push`) debe marcarse
-**una sola vez** como al día con el baseline, o el build fallará al intentar
-crear tablas que ya existen:
+El repositorio trae [`Dockerfile`](Dockerfile), [`docker-compose.yml`](docker-compose.yml)
+(app + PostgreSQL) y [`.env.production.example`](.env.production.example).
 
 ```bash
-npx prisma migrate resolve --applied 0_init
+cp .env.production.example .env.production   # llénalo: contraseña de la base, AUTH_SECRET…
+docker compose --env-file .env.production up -d --build
+docker compose --env-file .env.production run --rm app create-superadmin tu@correo.com "Tu Nombre"
 ```
 
-Los datos de demostración nunca se cargan en el despliegue: `npm run db:seed`
-solo se corre a mano y nunca contra producción.
+- `--env-file` alimenta las variables `${...}` del compose (base de datos y
+  argumentos de build); `env_file` las pasa al contenedor en ejecución.
+- **Migraciones:** el contenedor de la app aplica las pendientes al arrancar
+  (`prisma migrate deploy`). `RUN_MIGRATIONS=false` desactiva ese paso.
+- **Identidad del producto:** `NEXT_PUBLIC_APP_*` se incrustan al compilar la
+  imagen; cambiarlas requiere `--build`.
+- La imagen usa el modo `standalone` de Next: lleva `server.js` y solo los
+  módulos que la app usa, más una carpeta `/migrator` con lo mínimo para
+  migrar (CLI de Prisma) y crear superadministradores.
+- Si ya tienes un PostgreSQL propio, quita el servicio `db` del compose y
+  define `DATABASE_URL` y `DIRECT_URL` en `.env.production`.
+- Pon un proxy inverso con HTTPS delante (Caddy, Nginx…): la cookie de sesión
+  es `secure` en producción.
 
-El build no necesita la base: la marca se lee de la sesión en cada petición
-y, si la base no contesta, se pinta la del producto
-([`src/lib/org.ts`](src/lib/org.ts)).
+Comandos del contenedor ([`docker-entrypoint.sh`](docker-entrypoint.sh)):
+
+| Comando | Qué hace |
+|---|---|
+| `start` (por defecto) | Aplica migraciones y arranca la app |
+| `migrate` | Solo aplica migraciones |
+| `baseline` | Marca una base creada antes de las migraciones como al día con `0_init` (una sola vez) |
+| `create-superadmin correo "Nombre"` | Crea un superadministrador con contraseña temporal |
+
+### Base existente creada con `db push`
+
+La base que ya está en producción se creó con `prisma db push`, antes de que
+existiera `prisma/migrations`. **Una sola vez**, antes del primer arranque de
+esta versión, respáldala y márcala como al día con el baseline; si no, la app
+intentará crear tablas que ya existen y no arrancará:
+
+```bash
+pg_dump "$DATABASE_URL" > respaldo-antes-de-migrar.sql
+docker compose --env-file .env.production run --rm app baseline
+docker compose --env-file .env.production up -d
+```
+
+Las migraciones siguientes convierten esa base al modelo multi-arrendador:
+los datos existentes quedan en una arrendadora cuyo slug sale de su nombre de
+marca (el superadministrador puede cambiarlo).
+
+Los datos de demostración (`npm run db:seed`) nunca se cargan en producción.
