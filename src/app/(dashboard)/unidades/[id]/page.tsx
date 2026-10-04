@@ -17,6 +17,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { ButtonLink } from "@/components/shared/button-link";
+import { Amount } from "@/components/shared/amount";
 import {
   Card,
   CardContent,
@@ -50,9 +51,13 @@ import {
   UNIT_STATUS_TONES,
   UNIT_TYPE_LABELS,
 } from "@/lib/labels";
+import { ConfirmDelete } from "@/components/shared/confirm-delete";
+import { ServiceAccountCard } from "@/components/services/service-account-card";
+import { AddServiceDialog } from "@/components/services/add-service-dialog";
+import { NewBookingDialog } from "@/components/bookings/new-booking-dialog";
+import { CancelBookingButton } from "@/components/bookings/cancel-booking-button";
+import { deleteUnit } from "@/server/actions/properties";
 import { EditUnitDialog } from "./edit-unit-dialog";
-import { ServiceAccountCard } from "./service-account-card";
-import { AddServiceDialog } from "./add-service-dialog";
 
 export async function generateMetadata({
   params,
@@ -99,23 +104,32 @@ export default async function UnitPage({
         description={`${UNIT_TYPE_LABELS[unit.type]} en ${unit.building.name} · ${money(unit.baseRent)}${isShortTerm ? " por noche" : " al mes"}.`}
         action={
           editable ? (
-            <EditUnitDialog
-              unitId={unit.id}
-              buildings={buildings}
-              defaults={{
-                buildingId: unit.building.id,
-                code: unit.code,
-                name: unit.name,
-                type: unit.type,
-                status: unit.status,
-                floor: unit.floor,
-                bedrooms: unit.bedrooms,
-                bathrooms: unit.bathrooms,
-                sizeM2: unit.sizeM2,
-                baseRent: unit.baseRent,
-                description: unit.description,
-              }}
-            />
+            <div className="flex flex-wrap gap-2">
+              <ConfirmDelete
+                label="Eliminar"
+                title={`¿Eliminar la unidad ${unit.code}?`}
+                description="Se borra la unidad con sus servicios. Solo es posible si nunca tuvo contratos, reservas ni servicios capturados."
+                confirmLabel="Eliminar unidad"
+                action={deleteUnit.bind(null, unit.id)}
+              />
+              <EditUnitDialog
+                unitId={unit.id}
+                buildings={buildings}
+                defaults={{
+                  buildingId: unit.building.id,
+                  code: unit.code,
+                  name: unit.name,
+                  type: unit.type,
+                  status: unit.status,
+                  floor: unit.floor,
+                  bedrooms: unit.bedrooms,
+                  bathrooms: unit.bathrooms,
+                  sizeM2: unit.sizeM2,
+                  baseRent: unit.baseRent,
+                  description: unit.description,
+                }}
+              />
+            </div>
           ) : null
         }
       />
@@ -221,7 +235,7 @@ export default async function UnitPage({
                 </div>
                 {editable ? (
                   <AddServiceDialog
-                    unitId={unit.id}
+                    target={{ scope: "UNIT", unitId: unit.id }}
                     existingTypes={unit.serviceAccounts.map((a) => a.type)}
                   />
                 ) : null}
@@ -295,17 +309,27 @@ export default async function UnitPage({
           {isShortTerm ? (
             <Card>
               <CardHeader>
-                <CardTitle>Reservas próximas</CardTitle>
-                <CardDescription>
-                  Estancias confirmadas para esta unidad.
-                </CardDescription>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <CardTitle>Reservas próximas</CardTitle>
+                    <CardDescription>
+                      Estancias confirmadas para esta unidad.
+                    </CardDescription>
+                  </div>
+                  {editable ? (
+                    <NewBookingDialog
+                      unitId={unit.id}
+                      units={[{ id: unit.id, label: unit.code, nightlyRate: unit.baseRent }]}
+                    />
+                  ) : null}
+                </div>
               </CardHeader>
               <CardContent>
                 {unit.bookings.length === 0 ? (
                   <EmptyState
                     icon={CalendarDays}
                     title="Sin reservas próximas"
-                    description="Cuando lleguen reservas nuevas aparecerán aquí y en el calendario global."
+                    description="Las reservas que registres o que lleguen de Airbnb aparecerán aquí y en el calendario global."
                   />
                 ) : (
                   <ul className="divide-y">
@@ -324,14 +348,22 @@ export default async function UnitPage({
                             {booking.guests === 1 ? "huésped" : "huéspedes"}
                           </p>
                         </div>
-                        <div className="text-right">
-                          <p className="text-sm tabular-nums">
-                            {shortDate(booking.checkIn)} →{" "}
-                            {shortDate(booking.checkOut)}
-                          </p>
-                          <p className="text-muted-foreground text-xs tabular-nums">
-                            {money(booking.totalAmount)}
-                          </p>
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <p className="text-sm tabular-nums">
+                              {shortDate(booking.checkIn)} →{" "}
+                              {shortDate(booking.checkOut)}
+                            </p>
+                            <p className="text-muted-foreground text-xs">
+                              <Amount value={booking.totalAmount} className="font-normal" />
+                            </p>
+                          </div>
+                          {editable && booking.source !== "AIRBNB" ? (
+                            <CancelBookingButton
+                              bookingId={booking.id}
+                              guestName={booking.guestName}
+                            />
+                          ) : null}
                         </div>
                       </li>
                     ))}

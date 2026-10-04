@@ -17,13 +17,16 @@ import { getBuildingDetail } from "@/lib/queries/properties";
 import { requireOrgUser } from "@/lib/auth/session";
 import { canEdit } from "@/lib/permissions";
 import { money, shortDate } from "@/lib/format";
+import { ConfirmDelete } from "@/components/shared/confirm-delete";
+import { AddServiceDialog } from "@/components/services/add-service-dialog";
+import { ServiceAccountCard } from "@/components/services/service-account-card";
+import { deleteBuilding } from "@/server/actions/properties";
 import {
-  SERVICE_TYPE_LABELS,
-  SPLIT_MODE_LABELS,
   UNIT_STATUS_LABELS,
   UNIT_STATUS_TONES,
   UNIT_TYPE_LABELS,
 } from "@/lib/labels";
+import { EditBuildingDialog } from "./edit-building-dialog";
 
 export async function generateMetadata({
   params,
@@ -67,10 +70,28 @@ export default async function BuildingDetailPage({
         description={`${building.address}${building.city ? `, ${building.city}` : ""} · ${occupied} de ${building.units.length} unidades ocupadas.`}
         action={
           editable ? (
-            <ButtonLink href={`/unidades/nueva?edificio=${building.id}`}>
-              <Plus className="size-4" aria-hidden />
-              Nueva unidad
-            </ButtonLink>
+            <div className="flex flex-wrap gap-2">
+              <ConfirmDelete
+                label="Eliminar"
+                title={`¿Eliminar ${building.name}?`}
+                description="Se borra la propiedad con sus unidades y servicios. Solo es posible si nunca tuvo contratos, reservas ni servicios capturados."
+                confirmLabel="Eliminar propiedad"
+                action={deleteBuilding.bind(null, building.id)}
+              />
+              <EditBuildingDialog
+                buildingId={building.id}
+                defaults={{
+                  name: building.name,
+                  address: building.address,
+                  city: building.city,
+                  notes: building.notes,
+                }}
+              />
+              <ButtonLink href={`/unidades/nueva?edificio=${building.id}`}>
+                <Plus className="size-4" aria-hidden />
+                Nueva unidad
+              </ButtonLink>
+            </div>
           ) : null
         }
       />
@@ -94,6 +115,7 @@ export default async function BuildingDetailPage({
                   <ButtonLink
                     href={`/unidades/nueva?edificio=${building.id}`}
                     size="sm"
+                    variant="outline"
                   >
                     Agregar la primera unidad
                   </ButtonLink>
@@ -148,58 +170,39 @@ export default async function BuildingDetailPage({
       {/* ------------------------------------------- servicios del edificio */}
       <Card>
         <CardHeader>
-          <CardTitle>Servicios de la propiedad</CardTitle>
-          <CardDescription>
-            Recibos que llegan a nombre del edificio completo y se reparten
-            entre las unidades.
-          </CardDescription>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <CardTitle>Servicios de la propiedad</CardTitle>
+              <CardDescription>
+                Recibos que llegan a nombre del edificio completo y se reparten
+                entre las unidades. Sus montos se capturan en Servicios.
+              </CardDescription>
+            </div>
+            {editable ? (
+              <AddServiceDialog
+                target={{ scope: "BUILDING", buildingId: building.id }}
+                existingTypes={building.serviceAccounts.map((a) => a.type)}
+              />
+            ) : null}
+          </div>
         </CardHeader>
         <CardContent>
           {building.serviceAccounts.length === 0 ? (
             <EmptyState
               icon={Receipt}
               title="Sin servicios a nivel propiedad"
-              description="Aquí aparecerían los recibos globales, como el agua de todo el edificio."
+              description="Agrega los recibos globales, como el agua de todo el edificio, y elige cómo se reparten."
             />
           ) : (
-            <ul className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-4 lg:grid-cols-2">
               {building.serviceAccounts.map((account) => (
-                <li key={account.id} className="rounded-lg border p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="font-medium">
-                      {SERVICE_TYPE_LABELS[account.type]}
-                    </p>
-                    <StatusBadge
-                      tone={account.includedInRent ? "success" : "neutral"}
-                    >
-                      {account.includedInRent
-                        ? "Incluido en la renta"
-                        : "Se cobra aparte"}
-                    </StatusBadge>
-                  </div>
-                  <dl className="text-muted-foreground mt-2 space-y-0.5 text-xs">
-                    <div className="flex gap-1">
-                      <dt>Proveedor:</dt>
-                      <dd className="text-foreground">
-                        {account.providerName ?? "—"}
-                      </dd>
-                    </div>
-                    <div className="flex gap-1">
-                      <dt>No. de contrato:</dt>
-                      <dd className="text-foreground tabular-nums">
-                        {account.contractNumber ?? "—"}
-                      </dd>
-                    </div>
-                    <div className="flex gap-1">
-                      <dt>Reparto:</dt>
-                      <dd className="text-foreground">
-                        {SPLIT_MODE_LABELS[account.splitMode]}
-                      </dd>
-                    </div>
-                  </dl>
-                </li>
+                <ServiceAccountCard
+                  key={account.id}
+                  account={account}
+                  editable={editable}
+                />
               ))}
-            </ul>
+            </div>
           )}
         </CardContent>
       </Card>

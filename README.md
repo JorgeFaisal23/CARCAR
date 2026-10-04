@@ -115,6 +115,21 @@ la cuenta de la plataforma:
   equipo además del dueño (`src/lib/plans.ts`). Bajar de plan no borra nada.
   El uso se ve en `/premium`.
 
+## Propiedades, servicios y reservas
+
+- **Editar y eliminar** propiedades y unidades desde su ficha. Eliminar borra
+  en cascada contratos, cobros y servicios, así que solo se permite si nunca
+  tuvieron contratos, reservas ni servicios capturados; con historial se
+  edita en su lugar. Archivar queda pendiente.
+- **Recibos de la propiedad** (agua del edificio, mantenimiento…): se dan de
+  alta en la ficha de la propiedad con su modo de reparto (partes iguales, por
+  metros cuadrados o sin reparto). El monto se captura en Servicios, que
+  muestra el reparto por unidad (`src/lib/services/allocation.ts`).
+- **Reservas manuales:** desde el calendario o desde una unidad de corta
+  estancia. Se rechazan si se cruzan con otra reserva confirmada o con un
+  contrato vigente o en borrador; la salida de una puede ser la llegada de la
+  siguiente. Las capturadas aquí se pueden cancelar; las de Airbnb, no.
+
 ## Varias arrendadoras en la misma app
 
 Cada tabla con datos de una arrendadora lleva `organizationId`. Las páginas y

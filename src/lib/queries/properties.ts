@@ -170,7 +170,7 @@ export async function getUnitDetail(db: OrgDb, unitId: string) {
         },
       },
       bookings: {
-        where: { checkOut: { gte: now } },
+        where: { checkOut: { gte: now }, status: "CONFIRMED" },
         orderBy: { checkIn: "asc" },
         take: 10,
       },
@@ -268,4 +268,21 @@ export async function getBuildingsForSelect(db: OrgDb) {
     select: { id: true, name: true },
     orderBy: { name: "asc" },
   });
+}
+
+/** Unidades que pueden recibir una reserva corta (todas menos las de mantenimiento). */
+export async function getBookableUnits(db: OrgDb) {
+  const units = await db.unit.findMany({
+    where: { status: { not: "MAINTENANCE" } },
+    orderBy: [{ building: { name: "asc" } }, { code: "asc" }],
+    select: { id: true, code: true, baseRent: true, status: true, building: { select: { name: true } } },
+  });
+
+  return units.map((unit) => ({
+    id: unit.id,
+    label: `${unit.building.name} · ${unit.code}`,
+    // La renta base de una unidad de corta estancia es su tarifa por noche;
+    // para las demás no hay tarifa que sugerir.
+    nightlyRate: unit.status === "SHORT_TERM" ? toNumber(unit.baseRent) : 0,
+  }));
 }

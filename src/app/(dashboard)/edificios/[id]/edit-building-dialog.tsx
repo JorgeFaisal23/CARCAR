@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
-import { Plus } from "lucide-react";
+import { Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,69 +15,70 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { FormError } from "@/components/shared/form-field";
-import { BuildingFormFields } from "@/components/properties/building-form-fields";
-import { createBuilding } from "@/server/actions/properties";
+import {
+  BuildingFormFields,
+  type BuildingDefaults,
+} from "@/components/properties/building-form-fields";
+import { updateBuilding } from "@/server/actions/properties";
 
 function Submit() {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" disabled={pending}>
-      {pending ? "Guardando…" : "Guardar propiedad"}
+      {pending ? "Guardando…" : "Guardar cambios"}
     </Button>
   );
 }
 
-export function NewBuildingDialog() {
+export function EditBuildingDialog({
+  buildingId,
+  defaults,
+}: {
+  buildingId: string;
+  defaults: BuildingDefaults;
+}) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string>();
 
-  // La acción se envuelve en lugar de reaccionar a su resultado con un
-  // efecto: cerrar el diálogo y avisar son consecuencias directas de
-  // enviar el formulario, no de un cambio de estado posterior.
   async function submit(formData: FormData) {
-    const result = await createBuilding({}, formData);
+    const result = await updateBuilding({}, formData);
     if (result?.error) {
       setError(result.error);
       return;
     }
     setError(undefined);
     setOpen(false);
-    toast.success("Propiedad registrada.");
+    toast.success("Propiedad actualizada.");
   }
-
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
-          <Button>
-            <Plus className="size-4" aria-hidden />
-            Nueva propiedad
+          <Button variant="outline">
+            <Pencil className="size-4" aria-hidden />
+            Editar
           </Button>
         }
       />
       <DialogContent className="sm:max-w-lg">
         <form action={submit}>
+          <input type="hidden" name="buildingId" value={buildingId} />
           <DialogHeader>
-            <DialogTitle>Nueva propiedad</DialogTitle>
+            <DialogTitle>Editar propiedad</DialogTitle>
             <DialogDescription>
-              Un edificio, una casa o cualquier inmueble que agrupe unidades en
-              renta. Después le agregas los cuartos o departamentos.
+              El nombre y la dirección se ven en toda la app y en el portal de
+              tus inquilinos.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            <BuildingFormFields />
-
+            <BuildingFormFields defaults={defaults} />
             <FormError message={error} />
           </div>
 
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setOpen(false)}
-            >
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancelar
             </Button>
             <Submit />

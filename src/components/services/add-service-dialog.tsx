@@ -20,7 +20,11 @@ import { Label } from "@/components/ui/label";
 import { Field, FormError, NativeSelect } from "@/components/shared/form-field";
 import { SERVICE_TYPE_LABELS, SERVICE_TYPE_ORDER } from "@/lib/labels";
 import type { ServiceType } from "@/generated/prisma/enums";
-import { createUnitServiceAccount } from "@/server/actions/properties";
+import {
+  createBuildingServiceAccount,
+  createUnitServiceAccount,
+} from "@/server/actions/properties";
+import { SplitModeSelect } from "./split-mode-select";
 
 function Submit() {
   const { pending } = useFormStatus();
@@ -31,22 +35,30 @@ function Submit() {
   );
 }
 
+/** A quién pertenece el servicio: una unidad o la propiedad completa. */
+export type ServiceTarget =
+  | { scope: "UNIT"; unitId: string }
+  | { scope: "BUILDING"; buildingId: string };
+
 export function AddServiceDialog({
-  unitId,
+  target,
   existingTypes,
 }: {
-  unitId: string;
+  target: ServiceTarget;
   existingTypes: ServiceType[];
 }) {
   const [open, setOpen] = useState(false);
   const [included, setIncluded] = useState(false);
   const [error, setError] = useState<string>();
+  const isBuilding = target.scope === "BUILDING";
 
   // La acción se envuelve en lugar de reaccionar a su resultado con un
   // efecto: cerrar el diálogo y avisar son consecuencias directas de
   // enviar el formulario, no de un cambio de estado posterior.
   async function submit(formData: FormData) {
-    const result = await createUnitServiceAccount({}, formData);
+    const result = isBuilding
+      ? await createBuildingServiceAccount({}, formData)
+      : await createUnitServiceAccount({}, formData);
     if (result?.error) {
       setError(result.error);
       return;
@@ -55,7 +67,6 @@ export function AddServiceDialog({
     setOpen(false);
     toast.success("Servicio agregado.");
   }
-
 
   const available = SERVICE_TYPE_ORDER.filter(
     (type) => !existingTypes.includes(type),
@@ -73,7 +84,11 @@ export function AddServiceDialog({
       />
       <DialogContent className="sm:max-w-md">
         <form action={submit}>
-          <input type="hidden" name="unitId" value={unitId} />
+          {target.scope === "BUILDING" ? (
+            <input type="hidden" name="buildingId" value={target.buildingId} />
+          ) : (
+            <input type="hidden" name="unitId" value={target.unitId} />
+          )}
           <input
             type="hidden"
             name="includedInRent"
@@ -83,8 +98,9 @@ export function AddServiceDialog({
           <DialogHeader>
             <DialogTitle>Agregar servicio</DialogTitle>
             <DialogDescription>
-              Un servicio contratado específicamente para esta unidad, con su
-              propio número de contrato.
+              {isBuilding
+                ? "Un recibo a nombre de toda la propiedad, como el agua del edificio, que se reparte entre sus unidades."
+                : "Un servicio contratado específicamente para esta unidad, con su propio número de contrato."}
             </DialogDescription>
           </DialogHeader>
 
@@ -114,6 +130,10 @@ export function AddServiceDialog({
                 className="tabular-nums"
               />
             </Field>
+
+            {isBuilding ? (
+              <SplitModeSelect id="splitMode-nuevo" defaultValue="EQUAL" />
+            ) : null}
 
             <div className="flex items-center justify-between rounded-lg border p-3">
               <Label htmlFor="incluido-nuevo" className="font-normal">

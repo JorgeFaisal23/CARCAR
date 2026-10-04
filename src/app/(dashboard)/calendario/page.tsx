@@ -14,6 +14,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { requireOrgUser } from "@/lib/auth/session";
 import { getCalendarData } from "@/lib/queries/calendar";
+import { getBookableUnits } from "@/lib/queries/properties";
+import { canEdit } from "@/lib/permissions";
+import { NewBookingDialog } from "@/components/bookings/new-booking-dialog";
 import { periodKey } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { TONE_CLASSES } from "@/lib/labels";
@@ -30,11 +33,15 @@ export default async function CalendarPage({
 }: {
   searchParams: Promise<{ mes?: string; edificio?: string }>;
 }) {
-  const { db } = await requireOrgUser(["OWNER", "ADMIN", "VIEWER"]);
+  const { session, db } = await requireOrgUser(["OWNER", "ADMIN", "VIEWER"]);
   const { mes, edificio } = await searchParams;
 
   const period = mes && PERIOD_PATTERN.test(mes) ? mes : periodKey(new Date());
-  const data = await getCalendarData(db, period, edificio || undefined);
+  const editable = canEdit(session.role);
+  const [data, bookableUnits] = await Promise.all([
+    getCalendarData(db, period, edificio || undefined),
+    editable ? getBookableUnits(db) : Promise.resolve([]),
+  ]);
 
   return (
     <>
@@ -42,13 +49,18 @@ export default async function CalendarPage({
         title="Calendario"
         description="Arrendamientos de largo plazo y reservas de corta estancia sobre el mismo eje de tiempo."
         action={
-          <Suspense fallback={<Skeleton className="h-9 w-72" />}>
-            <CalendarToolbar
-              period={period}
-              buildings={data.buildings}
-              buildingId={edificio}
-            />
-          </Suspense>
+          <div className="flex flex-wrap items-center gap-2">
+            <Suspense fallback={<Skeleton className="h-9 w-72" />}>
+              <CalendarToolbar
+                period={period}
+                buildings={data.buildings}
+                buildingId={edificio}
+              />
+            </Suspense>
+            {editable && bookableUnits.length > 0 ? (
+              <NewBookingDialog units={bookableUnits} variant="default" />
+            ) : null}
+          </div>
         }
       />
 

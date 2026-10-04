@@ -9,10 +9,11 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Field, FormError } from "@/components/shared/form-field";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { SERVICE_TYPE_LABELS } from "@/lib/labels";
-import type { ServiceType } from "@/generated/prisma/enums";
+import { SERVICE_TYPE_LABELS, SPLIT_MODE_LABELS } from "@/lib/labels";
+import type { ServiceType, SplitMode } from "@/generated/prisma/enums";
 import { updateServiceAccount } from "@/server/actions/properties";
 import type { ActionResult } from "@/lib/action-result";
+import { SplitModeSelect } from "./split-mode-select";
 
 function Save({ dirty }: { dirty: boolean }) {
   const { pending } = useFormStatus();
@@ -24,8 +25,9 @@ function Save({ dirty }: { dirty: boolean }) {
 }
 
 /**
- * Configuración de un servicio de la unidad: si va incluido en la renta, quién
- * lo provee y con qué número de contrato.
+ * Configuración de un servicio: si va incluido en la renta, quién lo provee y
+ * con qué número de contrato. Los recibos de la propiedad (los que traen
+ * `splitMode`) también eligen cómo se reparten entre las unidades.
  */
 export function ServiceAccountCard({
   account,
@@ -37,6 +39,7 @@ export function ServiceAccountCard({
     providerName: string | null;
     contractNumber: string | null;
     includedInRent: boolean;
+    splitMode?: SplitMode;
   };
   editable: boolean;
 }) {
@@ -47,9 +50,11 @@ export function ServiceAccountCard({
   const [included, setIncluded] = useState(account.includedInRent);
   const [provider, setProvider] = useState(account.providerName ?? "");
   const [contract, setContract] = useState(account.contractNumber ?? "");
+  const [split, setSplit] = useState(account.splitMode);
 
   const dirty =
     included !== account.includedInRent ||
+    split !== account.splitMode ||
     provider !== (account.providerName ?? "") ||
     contract !== (account.contractNumber ?? "");
 
@@ -71,6 +76,7 @@ export function ServiceAccountCard({
         <p className="text-muted-foreground mt-2 text-xs">
           {account.providerName ?? "Sin proveedor"} · Contrato{" "}
           {account.contractNumber ?? "—"}
+          {account.splitMode ? ` · ${SPLIT_MODE_LABELS[account.splitMode]}` : ""}
         </p>
       </div>
     );
@@ -125,6 +131,10 @@ export function ServiceAccountCard({
           />
         </Field>
       </div>
+
+      {split ? (
+        <SplitModeSelect id={`split-${account.id}`} value={split} onChange={setSplit} />
+      ) : null}
 
       <FormError message={state.error} />
 

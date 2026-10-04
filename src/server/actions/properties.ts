@@ -59,6 +59,94 @@ export async function createBuilding(
   return { ok: true };
 }
 
+export async function updateBuilding(
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const { session, db } = await requireOrgUserAction(["OWNER", "ADMIN"]);
+  const buildingId = String(formData.get("buildingId") ?? "");
+
+  const parsed = buildingSchema.safeParse({
+    name: formData.get("name"),
+    address: formData.get("address"),
+    city: formData.get("city") || undefined,
+    notes: formData.get("notes") || undefined,
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Revisa los datos." };
+  }
+  if (!(await buildingExists(db, buildingId))) {
+    return { error: "No se encontró la propiedad." };
+  }
+
+  await db.building.update({
+    where: { id: buildingId },
+    data: {
+      name: parsed.data.name,
+      address: parsed.data.address,
+      city: parsed.data.city ?? null,
+      notes: parsed.data.notes ?? null,
+    },
+  });
+  await logAction(db, session.sub, "Edición de propiedad", "Building", buildingId, parsed.data.name);
+
+  revalidatePath("/edificios");
+  revalidatePath(`/edificios/${buildingId}`);
+  revalidatePath("/dashboard");
+  return { ok: true };
+}
+
+/**
+ * Por qué no se puede borrar una propiedad o unidad, o null si se puede.
+ * Borrar arrastra en cascada contratos, cobros y servicios, así que solo se
+ * permite mientras no haya nada que conservar.
+ */
+async function deletionBlocker(
+  db: OrgDb,
+  target: { buildingId: string } | { unitId: string },
+): Promise<string | null> {
+  const unit = "buildingId" in target ? { buildingId: target.buildingId } : { id: target.unitId };
+  const accounts =
+    "buildingId" in target
+      ? { OR: [{ buildingId: target.buildingId }, { unit }] }
+      : { unitId: target.unitId };
+
+  const [activeLeases, upcomingBookings, leases, bookings, serviceCharges] = await Promise.all([
+    db.lease.count({ where: { unit, status: "ACTIVE" } }),
+    db.booking.count({ where: { unit, status: "CONFIRMED", checkOut: { gte: new Date() } } }),
+    db.lease.count({ where: { unit } }),
+    db.booking.count({ where: { unit } }),
+    db.serviceCharge.count({ where: { serviceAccount: accounts } }),
+  ]);
+
+  if (activeLeases > 0) return "Tiene contratos vigentes. Termínalos antes de eliminar.";
+  if (upcomingBookings > 0) return "Tiene reservas próximas. Cancélalas antes de eliminar.";
+  if (leases + bookings + serviceCharges > 0) {
+    return "Tiene historial de contratos, reservas o servicios capturados, y eliminarla lo borraría. Puedes editarla en su lugar.";
+  }
+  return null;
+}
+
+export async function deleteBuilding(buildingId: string): Promise<ActionResult> {
+  const { session, db } = await requireOrgUserAction(["OWNER", "ADMIN"]);
+
+  const building = await db.building.findUnique({
+    where: { id: buildingId },
+    select: { name: true },
+  });
+  if (!building) return { error: "No se encontró la propiedad." };
+
+  const blocker = await deletionBlocker(db, { buildingId });
+  if (blocker) return { error: blocker };
+
+  await db.building.delete({ where: { id: buildingId } });
+  await logAction(db, session.sub, "Baja de propiedad", "Building", buildingId, building.name);
+
+  revalidatePath("/edificios");
+  revalidatePath("/dashboard");
+  redirect("/edificios");
+}
+
 // ------------------------------------------------------------------ unidades
 
 const unitSchema = z.object({
@@ -176,12 +264,37 @@ export async function updateUnit(
   return { ok: true };
 }
 
+export async function deleteUnit(unitId: string): Promise<ActionResult> {
+  const { session, db } = await requireOrgUserAction(["OWNER", "ADMIN"]);
+
+  const unit = await db.unit.findUnique({
+    where: { id: unitId },
+    select: { code: true, buildingId: true },
+  });
+  if (!unit) return { error: "No se encontró la unidad." };
+
+  const blocker = await deletionBlocker(db, { unitId });
+  if (blocker) return { error: blocker };
+
+  await db.unit.delete({ where: { id: unitId } });
+  await logAction(db, session.sub, "Baja de unidad", "Unit", unitId, unit.code);
+
+  revalidatePath("/edificios");
+  revalidatePath(`/edificios/${unit.buildingId}`);
+  revalidatePath("/dashboard");
+  redirect(`/edificios/${unit.buildingId}`);
+}
+
 // ------------------------------------------------------------------ servicios
+
+const SERVICE_TYPES = ["WATER", "ELECTRICITY", "INTERNET", "MAINTENANCE", "GAS", "OTHER"] as const;
+const SPLIT_MODES = ["NONE", "EQUAL", "BY_SIZE"] as const;
 
 const serviceAccountSchema = z.object({
   includedInRent: z.coerce.boolean(),
   providerName: z.string().trim().optional(),
   contractNumber: z.string().trim().optional(),
+  splitMode: z.enum(SPLIT_MODES).optional(),
 });
 
 /** Guarda la configuración de un servicio (incluido Sí/No, proveedor, contrato). */
@@ -197,6 +310,7 @@ export async function updateServiceAccount(
     includedInRent: formData.get("includedInRent") === "on",
     providerName: formData.get("providerName") || undefined,
     contractNumber: formData.get("contractNumber") || undefined,
+    splitMode: formData.get("splitMode") || undefined,
   });
 
   if (!parsed.success) {
@@ -205,7 +319,7 @@ export async function updateServiceAccount(
 
   const existing = await db.serviceAccount.findUnique({
     where: { id: accountId },
-    select: { id: true },
+    select: { scope: true },
   });
   if (!existing) return { error: "No se encontró el servicio." };
 
@@ -215,6 +329,10 @@ export async function updateServiceAccount(
       includedInRent: parsed.data.includedInRent,
       providerName: parsed.data.providerName ?? null,
       contractNumber: parsed.data.contractNumber ?? null,
+      // Solo un recibo de edificio se reparte entre unidades.
+      ...(existing.scope === "BUILDING" && parsed.data.splitMode
+        ? { splitMode: parsed.data.splitMode }
+        : {}),
     },
     select: { unitId: true, buildingId: true, type: true },
   });
@@ -236,7 +354,7 @@ export async function createUnitServiceAccount(
 
   const schema = z.object({
     unitId: z.string().min(1),
-    type: z.enum(["WATER", "ELECTRICITY", "INTERNET", "MAINTENANCE", "GAS", "OTHER"]),
+    type: z.enum(SERVICE_TYPES),
     providerName: z.string().trim().optional(),
     contractNumber: z.string().trim().optional(),
     includedInRent: z.coerce.boolean(),
@@ -281,6 +399,67 @@ export async function createUnitServiceAccount(
   await logAction(db, session.sub, "Alta de servicio", "ServiceAccount", parsed.data.unitId, parsed.data.type);
 
   revalidatePath(`/unidades/${parsed.data.unitId}`);
+  revalidatePath("/servicios");
+  return { ok: true };
+}
+
+/** Da de alta un recibo a nombre de la propiedad completa (p. ej. el agua del edificio). */
+export async function createBuildingServiceAccount(
+  _prev: ActionResult,
+  formData: FormData,
+): Promise<ActionResult> {
+  const { session, orgId, db } = await requireOrgUserAction(["OWNER", "ADMIN"]);
+
+  const schema = z.object({
+    buildingId: z.string().min(1),
+    type: z.enum(SERVICE_TYPES),
+    providerName: z.string().trim().optional(),
+    contractNumber: z.string().trim().optional(),
+    includedInRent: z.coerce.boolean(),
+    splitMode: z.enum(SPLIT_MODES),
+  });
+
+  const parsed = schema.safeParse({
+    buildingId: formData.get("buildingId"),
+    type: formData.get("type"),
+    providerName: formData.get("providerName") || undefined,
+    contractNumber: formData.get("contractNumber") || undefined,
+    includedInRent: formData.get("includedInRent") === "on",
+    splitMode: formData.get("splitMode") || "EQUAL",
+  });
+
+  if (!parsed.success) {
+    return { error: "Elige el tipo de servicio y cómo se reparte." };
+  }
+
+  if (!(await buildingExists(db, parsed.data.buildingId))) {
+    return { error: "No se encontró la propiedad." };
+  }
+
+  const exists = await db.serviceAccount.findFirst({
+    where: { buildingId: parsed.data.buildingId, type: parsed.data.type },
+    select: { id: true },
+  });
+  if (exists) {
+    return { error: "Esta propiedad ya tiene registrado ese servicio." };
+  }
+
+  const account = await db.serviceAccount.create({
+    data: {
+      organizationId: orgId,
+      scope: "BUILDING",
+      buildingId: parsed.data.buildingId,
+      type: parsed.data.type,
+      providerName: parsed.data.providerName ?? null,
+      contractNumber: parsed.data.contractNumber ?? null,
+      includedInRent: parsed.data.includedInRent,
+      splitMode: parsed.data.splitMode,
+    },
+  });
+
+  await logAction(db, session.sub, "Alta de servicio de propiedad", "ServiceAccount", account.id, parsed.data.type);
+
+  revalidatePath(`/edificios/${parsed.data.buildingId}`);
   revalidatePath("/servicios");
   return { ok: true };
 }
