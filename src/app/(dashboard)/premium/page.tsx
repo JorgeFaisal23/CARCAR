@@ -23,10 +23,12 @@ import { requireOrgUser } from "@/lib/auth/session";
 import { requireCurrentOrg } from "@/lib/org";
 import { cn } from "@/lib/utils";
 import { PLAN_LIMITS } from "@/lib/plans";
+import { ComingSoonBadge } from "@/components/premium/coming-soon-badge";
 
 export const metadata: Metadata = { title: "Planes" };
 
-type Feature = { name: string; free: boolean | string; premium: boolean | string };
+/** `soon`: anunciada, todavía no disponible en ningún plan. */
+type Feature = { name: string; free: boolean | string; premium: boolean | string; soon?: boolean };
 
 const FEATURES: { group: string; items: Feature[] }[] = [
   {
@@ -34,18 +36,16 @@ const FEATURES: { group: string; items: Feature[] }[] = [
     items: [
       { name: "Propiedades", free: "Hasta 2", premium: "Ilimitadas" },
       { name: "Unidades", free: "Hasta 20", premium: "Ilimitadas" },
-      { name: "Perfiles de inquilinos", free: true, premium: true },
-      { name: "Contratos con plantilla y firma digital", free: false, premium: true },
+      { name: "Perfiles de inquilinos y contratos", free: true, premium: true },
+      { name: "Contratos con plantilla y firma digital", free: false, premium: true, soon: true },
     ],
   },
   {
     group: "Operación diaria",
     items: [
-      { name: "Calendario global", free: true, premium: true },
-      { name: "Control de servicios y totales", free: true, premium: true },
-      { name: "Cobros y estado de pagos", free: true, premium: true },
-      { name: "Recordatorios automáticos por correo y WhatsApp", free: false, premium: true },
-      { name: "Recibos automáticos en PDF", free: false, premium: true },
+      { name: "Calendario y reservas de corta estancia", free: true, premium: true },
+      { name: "Control de servicios y reparto entre unidades", free: true, premium: true },
+      { name: "Cobros, pagos parciales y comprobantes", free: true, premium: true },
     ],
   },
   {
@@ -53,7 +53,7 @@ const FEATURES: { group: string; items: Feature[] }[] = [
     items: [
       { name: "Resumen del mes", free: true, premium: true },
       { name: "Reportes de rentabilidad y ocupación", free: false, premium: true },
-      { name: "Exportar a Excel y PDF", free: false, premium: true },
+      { name: "Exportar a Excel y PDF", free: false, premium: true, soon: true },
     ],
   },
   {
@@ -61,8 +61,7 @@ const FEATURES: { group: string; items: Feature[] }[] = [
     items: [
       { name: "Portal para inquilinos", free: true, premium: true },
       { name: "Personalización de marca", free: true, premium: true },
-      { name: "Usuarios administrativos", free: "1", premium: "Ilimitados" },
-      { name: "Permisos por propiedad", free: false, premium: true },
+      { name: "Usuarios de equipo además del dueño", free: "1", premium: "Ilimitados" },
       { name: "Bitácora de auditoría", free: false, premium: true },
     ],
   },
@@ -84,7 +83,7 @@ export default async function PremiumPage() {
     <>
       <PageHeader
         title={`Planes de ${APP.name}`}
-        description={`El plan es de tu cuenta en ${APP.name} y cubre todas tus propiedades. Empieza gratis y activa Premium cuando quieras automatizar el seguimiento y medir la rentabilidad.`}
+        description={`El plan es de tu cuenta en ${APP.name} y cubre todas tus propiedades. Empieza gratis y activa Premium cuando administres más inmuebles o quieras medir la rentabilidad.`}
       />
 
       {session.role === "OWNER" ? (
@@ -144,7 +143,7 @@ export default async function PremiumPage() {
           active={!isPremium}
           highlights={[
             "Hasta 2 propiedades y 20 unidades",
-            "Calendario global y control de servicios",
+            "Calendario, servicios y cobros completos",
             "Portal para tus inquilinos",
             "Personalización de marca",
           ]}
@@ -153,15 +152,13 @@ export default async function PremiumPage() {
           name="Premium"
           price="$799"
           cadence="al mes por arrendadora"
-          description="Para quien administra varios inmuebles y quiere dejar de perseguir pagos."
+          description="Para quien administra varios inmuebles y quiere medir la rentabilidad de cada uno."
           active={isPremium}
           featured
           highlights={[
             "Propiedades y unidades ilimitadas",
-            "Recordatorios automáticos de pago",
-            "Reportes de rentabilidad y exportación",
-            "Contratos con firma digital",
-            "Equipo con permisos y bitácora",
+            "Reportes de rentabilidad y ocupación",
+            "Equipo sin límite y bitácora de auditoría",
           ]}
         />
       </div>
@@ -170,7 +167,8 @@ export default async function PremiumPage() {
         <CardHeader>
           <CardTitle>Comparativa completa</CardTitle>
           <CardDescription>
-            Todo lo que incluye cada plan, sin letras chiquitas.
+            Todo lo que incluye cada plan, sin letras chiquitas. Lo marcado
+            como próximamente todavía no está disponible.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -202,6 +200,7 @@ export default async function PremiumPage() {
                     <TableRow key={feature.name}>
                       <TableCell className="whitespace-normal text-pretty">
                         {feature.name}
+                        {feature.soon ? <ComingSoonBadge className="ml-2 align-middle" /> : null}
                       </TableCell>
                       <TableCell className="text-center">
                         <FeatureValue value={feature.free} />

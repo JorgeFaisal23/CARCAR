@@ -186,8 +186,8 @@ export default async function UnitPage({
                 <p className="text-muted-foreground text-xs">
                   {isShortTerm ? "Tarifa por noche" : "Renta mensual"}
                 </p>
-                <p className="mt-0.5 text-2xl font-semibold tabular-nums">
-                  {money(unit.baseRent)}
+                <p className="mt-0.5 text-2xl">
+                  <Amount value={unit.baseRent} />
                 </p>
               </div>
             </CardContent>
@@ -503,9 +503,7 @@ export default async function UnitPage({
                         </p>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="text-sm font-medium tabular-nums">
-                          {money(charge.amount)}
-                        </span>
+                        <Amount value={charge.amount} className="text-sm font-medium" />
                         <StatusBadge tone={CHARGE_STATUS_TONES[charge.status]}>
                           {CHARGE_STATUS_LABELS[charge.status]}
                         </StatusBadge>

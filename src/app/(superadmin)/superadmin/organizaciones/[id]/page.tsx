@@ -103,7 +103,7 @@ export default async function OrganizationPage({ params }: Params) {
               <CardTitle>Plan</CardTitle>
               <CardDescription>
                 {org.plan === "PREMIUM"
-                  ? "Tiene acceso a reportes, automatizaciones, contratos y equipo ampliado."
+                  ? "Sin límite de propiedades, unidades ni equipo; con reportes y bitácora."
                   : "Plan gratuito: las secciones Premium se ven bloqueadas."}
               </CardDescription>
             </CardHeader>

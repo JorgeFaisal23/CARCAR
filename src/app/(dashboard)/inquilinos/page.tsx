@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { CalendarClock, Mail, Phone, UserPlus, Users } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
+import { Amount } from "@/components/shared/amount";
 import { EmptyState } from "@/components/shared/empty-state";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { ButtonLink } from "@/components/shared/button-link";
@@ -10,7 +11,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { requireOrgUser } from "@/lib/auth/session";
 import { canEdit } from "@/lib/permissions";
 import { getTenants } from "@/lib/queries/tenants";
-import { deadlineLabel, initials, money, shortDate } from "@/lib/format";
+import { deadlineLabel, initials, shortDate } from "@/lib/format";
 import { CHARGE_STATUS_LABELS, CHARGE_STATUS_TONES } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 
@@ -100,9 +101,7 @@ export default async function TenantsPage() {
                             {tenant.buildingName} · {tenant.unitCode}
                           </p>
                           <p className="text-xs tabular-nums">
-                            <span className="text-muted-foreground">
-                              {money(tenant.rentAmount)}
-                            </span>
+                            <Amount value={tenant.rentAmount ?? 0} className="text-muted-foreground font-normal" />
                             <span className="text-muted-foreground"> · </span>
                             <ContractDeadline
                               daysLeft={tenant.daysLeft}

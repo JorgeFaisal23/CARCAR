@@ -90,7 +90,13 @@ la cuenta de la plataforma:
   de equipo además del dueño.
 - Variables: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` y
   `APP_URL` (base de los enlaces; obligatoria en producción para mandarlos).
-  Ver `.env.example`.
+  Ver `.env.example`. Dos opciones probadas con cualquier servidor SMTP:
+  - **Gmail:** `smtp.gmail.com`, puerto `465`, tu correo como usuario y una
+    [contraseña de aplicación](https://myaccount.google.com/apppasswords)
+    (requiere verificación en dos pasos). Límite aproximado de 500 correos al día.
+  - **Brevo** (plan gratuito, 300 al día): `smtp-relay.brevo.com`, puerto
+    `587`, usuario y clave SMTP de su panel; verifica el remitente de
+    `MAIL_FROM` antes de enviar.
 
 ## Contratos y cobros
 
@@ -290,6 +296,10 @@ src/
   ([`src/lib/images.ts`](src/lib/images.ts)), así una foto de celular de 5 MB
   acaba pesando unos 200 KB. Para producción esto debe moverse a un
   almacenamiento de archivos (Vercel Blob o S3) y dejar en la base solo la ruta.
+- **Lo que todavía no existe se rotula "Próximamente"** (`ComingSoonBadge`):
+  plantillas y firma digital de contratos, y exportar reportes. Ninguna
+  pantalla muestra datos inventados. Las automatizaciones (recordatorios
+  automáticos) no forman parte del producto.
 - **Todos los datos son ficticios.**
 
 ## Despliegue con Docker (VPS)
@@ -315,7 +325,9 @@ docker compose --env-file .env.production run --rm app create-superadmin tu@corr
 - Si ya tienes un PostgreSQL propio, quita el servicio `db` del compose y
   define `DATABASE_URL` y `DIRECT_URL` en `.env.production`.
 - Pon un proxy inverso con HTTPS delante (Caddy, Nginx…): la cookie de sesión
-  es `secure` en producción.
+  es `secure` en producción. La app ya manda sus encabezados de seguridad
+  (CSP, `X-Frame-Options`, `nosniff`…, en [`next.config.ts`](next.config.ts));
+  HSTS conviene ponerlo en el proxy, una vez que HTTPS funcione.
 
 Comandos del contenedor ([`docker-entrypoint.sh`](docker-entrypoint.sh)):
 

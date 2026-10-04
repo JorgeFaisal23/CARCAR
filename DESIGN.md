@@ -245,6 +245,7 @@ Antes de crear algo, revisa esta tabla. Los primitivos de `src/components/ui/` s
 | Confirmar que algo se guardó | `toast.success("…")` corto; `toast.error` con la causa | Avisos persistentes para éxitos |
 | Navegar con aspecto de botón | [`ButtonLink`](src/components/shared/button-link.tsx) | `<Link>` con clases de botón copiadas |
 | Mostrar una función Premium | `PremiumGate` / `PremiumBadge` | Botones deshabilitados sin explicación |
+| Anunciar una función que aún no existe | [`ComingSoonBadge`](src/components/premium/coming-soon-badge.tsx) junto al nombre o dentro del botón deshabilitado; [`ComingSoon`](src/components/premium/coming-soon-badge.tsx) para una sección completa | Pantallas con datos inventados o estados simulados |
 | Mostrar carga | `loading.tsx` con `PageSkeleton` o `Skeleton` con la forma del contenido | Spinners de pantalla completa |
 
 **Botones, en orden de jerarquía:**

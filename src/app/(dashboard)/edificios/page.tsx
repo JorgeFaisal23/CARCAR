@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Building2, MapPin, Plus } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
+import { Amount } from "@/components/shared/amount";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ButtonLink } from "@/components/shared/button-link";
 import { Card, CardContent } from "@/components/ui/card";
@@ -8,7 +9,6 @@ import { Progress } from "@/components/ui/progress";
 import { getBuildingsOverview } from "@/lib/queries/properties";
 import { requireOrgUser } from "@/lib/auth/session";
 import { canEdit } from "@/lib/permissions";
-import { money, moneyCompact } from "@/lib/format";
 import { NewBuildingDialog } from "./new-building-dialog";
 
 export const metadata: Metadata = { title: "Propiedades" };
@@ -75,7 +75,7 @@ export default async function BuildingsPage() {
                       Renta mensual
                     </dt>
                     <dd className="font-medium tabular-nums">
-                      {moneyCompact(building.monthlyRent)}
+                      <Amount value={building.monthlyRent} compact className="font-medium" />
                     </dd>
                   </div>
                   <div>
@@ -85,7 +85,7 @@ export default async function BuildingsPage() {
                     <dd className="font-medium tabular-nums">
                       {building.servicesThisMonth === 0
                         ? "Sin capturar"
-                        : money(building.servicesThisMonth)}
+                        : <Amount value={building.servicesThisMonth} className="font-medium" />}
                     </dd>
                   </div>
                 </dl>

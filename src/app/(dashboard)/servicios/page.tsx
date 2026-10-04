@@ -25,7 +25,7 @@ import {
 import { requireOrgUser } from "@/lib/auth/session";
 import { canEdit } from "@/lib/permissions";
 import { getServicesBoard } from "@/lib/queries/services";
-import { money, moneyCompact, periodKey, periodLabel, recentPeriods } from "@/lib/format";
+import { moneyCompact, periodKey, periodLabel, recentPeriods } from "@/lib/format";
 import { SERVICE_TYPE_LABELS } from "@/lib/labels";
 import { AmountInput } from "./amount-input";
 import { PeriodToolbar } from "./period-toolbar";
@@ -131,8 +131,8 @@ export default async function ServicesPage({
                   <p className="text-muted-foreground text-xs">
                     Total de la propiedad
                   </p>
-                  <p className="text-xl font-semibold tabular-nums">
-                    {money(building.total)}
+                  <p className="text-xl">
+                    <Amount value={building.total} />
                   </p>
                 </div>
               </div>
@@ -268,7 +268,7 @@ export default async function ServicesPage({
                             <summary className="text-muted-foreground hover:text-foreground cursor-pointer list-none text-xs">
                               Ver reparto entre {account.allocation.length}{" "}
                               unidades
-                              <span className="ml-1 inline-block transition group-open:rotate-90">
+                              <span className="ml-1 inline-block transition-transform group-open:rotate-90">
                                 ›
                               </span>
                             </summary>
@@ -279,7 +279,7 @@ export default async function ServicesPage({
                                   className="flex justify-between gap-2 tabular-nums"
                                 >
                                   <span>{share.label}</span>
-                                  <span>{money(share.amount)}</span>
+                                  <Amount value={share.amount} className="font-normal" />
                                 </li>
                               ))}
                             </ul>
@@ -318,8 +318,8 @@ export default async function ServicesPage({
                 servicios por unidad.
               </p>
             </div>
-            <p className="text-3xl font-semibold tabular-nums">
-              {money(board.grandTotal)}
+            <p className="text-3xl">
+              <Amount value={board.grandTotal} />
             </p>
           </CardContent>
         </Card>

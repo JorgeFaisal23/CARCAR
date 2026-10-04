@@ -216,8 +216,8 @@ export default async function DashboardPage() {
                         {shortDate(booking.checkIn)} →{" "}
                         {shortDate(booking.checkOut)}
                       </p>
-                      <p className="text-muted-foreground text-xs tabular-nums">
-                        {money(booking.totalAmount)}
+                      <p className="text-muted-foreground text-xs">
+                        <Amount value={booking.totalAmount} className="font-normal" />
                       </p>
                     </div>
                   </li>

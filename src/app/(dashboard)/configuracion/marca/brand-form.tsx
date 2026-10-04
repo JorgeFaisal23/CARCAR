@@ -173,7 +173,7 @@ export function BrandForm({
                     aria-pressed={color.toLowerCase() === preset.toLowerCase()}
                     onClick={() => setColor(preset)}
                     className={cn(
-                      "focus-visible:ring-ring flex size-8 items-center justify-center rounded-full transition focus-visible:ring-3 focus-visible:outline-none",
+                      "focus-visible:ring-ring flex size-8 items-center justify-center rounded-full transition-shadow focus-visible:ring-3 focus-visible:outline-none",
                       color.toLowerCase() === preset.toLowerCase() &&
                         "ring-foreground/30 ring-2 ring-offset-2",
                     )}
@@ -217,7 +217,7 @@ export function BrandForm({
                     aria-pressed={radius === option}
                     onClick={() => setRadius(option)}
                     className={cn(
-                      "flex items-center gap-2 border px-3 py-2 text-sm transition",
+                      "flex items-center gap-2 border px-3 py-2 text-sm transition-colors",
                       radius === option
                         ? "border-primary bg-primary/5"
                         : "hover:bg-accent",

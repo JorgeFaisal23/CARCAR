@@ -106,7 +106,7 @@ export default async function PaymentsPage({
             <span className="font-medium">Avance de cobranza</span>
             <span className="text-muted-foreground tabular-nums">
               <Amount value={board.collected} className="text-foreground" /> de{" "}
-              {money(board.expected)}
+              <Amount value={board.expected} className="font-normal" />
             </span>
           </div>
           <Progress value={progress} />
@@ -150,7 +150,7 @@ export default async function PaymentsPage({
                   <CardDescription>
                     {building.charges.length}{" "}
                     {building.charges.length === 1 ? "cargo" : "cargos"} ·{" "}
-                    {money(building.collected)} cobrados
+                    <Amount value={building.collected} className="font-normal" /> cobrados
                   </CardDescription>
                 </div>
                 <Amount value={building.total} className="text-xl tracking-tight" />

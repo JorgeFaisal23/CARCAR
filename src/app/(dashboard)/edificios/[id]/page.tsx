@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, DoorOpen, Plus, Receipt } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
+import { Amount } from "@/components/shared/amount";
 import { EmptyState } from "@/components/shared/empty-state";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { ButtonLink } from "@/components/shared/button-link";
@@ -16,7 +17,7 @@ import {
 import { getBuildingDetail } from "@/lib/queries/properties";
 import { requireOrgUser } from "@/lib/auth/session";
 import { canEdit } from "@/lib/permissions";
-import { money, shortDate } from "@/lib/format";
+import { shortDate } from "@/lib/format";
 import { ConfirmDelete } from "@/components/shared/confirm-delete";
 import { AddServiceDialog } from "@/components/services/add-service-dialog";
 import { ServiceAccountCard } from "@/components/services/service-account-card";
@@ -149,8 +150,8 @@ export default async function BuildingDetailPage({
                     </div>
 
                     <div className="flex items-center justify-between gap-4 sm:justify-end">
-                      <span className="text-sm font-medium tabular-nums">
-                        {money(unit.baseRent)}
+                      <span className="text-sm">
+                        <Amount value={unit.baseRent} className="font-medium" />
                         <span className="text-muted-foreground text-xs font-normal">
                           {unit.status === "SHORT_TERM" ? " /noche" : " /mes"}
                         </span>

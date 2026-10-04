@@ -14,7 +14,6 @@ import {
   Sparkles,
   Users,
   Users2,
-  Workflow,
   BarChart3,
 } from "lucide-react";
 import {
@@ -53,6 +52,7 @@ const MAIN_NAV: NavItem[] = [
   { href: "/servicios", label: "Servicios", icon: Receipt },
   { href: "/pagos", label: "Cobros", icon: Banknote },
   { href: "/inquilinos", label: "Inquilinos", icon: Users },
+  { href: "/contratos", label: "Contratos", icon: FileSignature },
   { href: "/equipo", label: "Equipo", icon: Users2 },
   {
     href: "/integraciones",
@@ -64,8 +64,6 @@ const MAIN_NAV: NavItem[] = [
 
 const PREMIUM_NAV: NavItem[] = [
   { href: "/reportes", label: "Reportes", icon: BarChart3, premium: true },
-  { href: "/automatizaciones", label: "Automatizaciones", icon: Workflow, premium: true },
-  { href: "/contratos", label: "Contratos", icon: FileSignature, premium: true },
 ];
 
 export function AppSidebar({

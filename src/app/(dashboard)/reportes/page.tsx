@@ -12,6 +12,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { Amount } from "@/components/shared/amount";
 import { PremiumGate } from "@/components/premium/premium-gate";
+import { ComingSoonBadge } from "@/components/premium/coming-soon-badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -56,13 +57,14 @@ export default async function ReportsPage() {
           <Button variant="outline" disabled>
             <Download className="size-4" aria-hidden />
             Exportar
+            <ComingSoonBadge />
           </Button>
         }
       />
 
       <PremiumGate
         title="Reportes y analítica"
-        description="Mide la rentabilidad real de cada propiedad, compara meses, detecta en qué se te va el dinero y exporta todo a Excel o PDF."
+        description="Mide la rentabilidad real de cada propiedad, compara meses y detecta en qué se te va el dinero."
       >
         <div className="space-y-6">
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
