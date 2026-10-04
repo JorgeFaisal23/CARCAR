@@ -111,7 +111,11 @@ describe("acciones de plataforma", () => {
     const owner = await prisma.user.findUniqueOrThrow({ where: { email } });
     expect(owner.role).toBe("OWNER");
     expect(owner.organizationId).toBe(result.orgId);
-    expect(await bcrypt.compare(result.tempPassword!, owner.passwordHash)).toBe(true);
+    // Sin SMTP en pruebas: el acceso llega como contraseña temporal.
+    expect(result.delivery?.method).toBe("password");
+    const temp = result.delivery?.method === "password" ? result.delivery.tempPassword : "";
+    expect(await bcrypt.compare(temp, owner.passwordHash)).toBe(true);
+    expect(owner.mustChangePassword).toBe(true);
 
     // Slug y correo ya usados.
     expect(
@@ -157,7 +161,9 @@ describe("acciones de plataforma", () => {
     const result = await resetOwnerPassword(fixture.owner.id);
     expect(result.ok).toBe(true);
     const owner = await prisma.user.findUniqueOrThrow({ where: { id: fixture.owner.id } });
-    expect(await bcrypt.compare(result.tempPassword!, owner.passwordHash)).toBe(true);
+    const temp = result.delivery?.method === "password" ? result.delivery.tempPassword : "";
+    expect(await bcrypt.compare(temp, owner.passwordHash)).toBe(true);
+    expect(owner.mustChangePassword).toBe(true);
     expect(owner.currentSessionId).toBeNull();
   });
 });

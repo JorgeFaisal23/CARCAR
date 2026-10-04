@@ -69,6 +69,7 @@ const loadAccount = cache(async (userId: string) =>
     select: {
       active: true,
       currentSessionId: true,
+      mustChangePassword: true,
       organizationId: true,
       organization: { select: { status: true } },
     },
@@ -95,6 +96,17 @@ export async function findSessionProblem(
   return null;
 }
 
+/** Ruta del cambio obligatorio de contraseña (cuenta con contraseña temporal). */
+export const FORCED_PASSWORD_PATH = "/cambiar-contrasena";
+
+/** Para el cambio de contraseña: deja pasar a quien todavía tiene la temporal. */
+type RequireOptions = { allowPendingPasswordChange?: boolean };
+
+/** ¿La cuenta de la sesión tiene contraseña temporal pendiente de cambiar? */
+export async function mustChangePassword(session: SessionPayload) {
+  const account = await loadAccount(session.sub);
+  return account?.mustChangePassword ?? false;
+}
 
 // ------------------------------------------------------------ páginas
 
@@ -105,12 +117,20 @@ export async function findSessionProblem(
  * Una sesión que ya no vale se manda a /salir: ahí un Route Handler borra la
  * cookie (durante el render no se puede) y lleva al acceso con el motivo.
  */
-export async function requireUser(roles?: Role[]): Promise<SessionPayload> {
+export async function requireUser(
+  roles?: Role[],
+  options: RequireOptions = {},
+): Promise<SessionPayload> {
   const session = await getSession();
   if (!session) redirect("/login");
 
   const problem = await findSessionProblem(session);
   if (problem) redirect(`/salir?motivo=${problem}`);
+
+  // Con contraseña temporal no se usa la app hasta elegir una propia.
+  if (!options.allowPendingPasswordChange && (await mustChangePassword(session))) {
+    redirect(FORCED_PASSWORD_PATH);
+  }
 
   if (roles && !roles.includes(session.role)) redirect(homePathFor(session.role));
   return session;
@@ -156,7 +176,10 @@ export async function requireSuperadmin(): Promise<SessionPayload> {
 // ------------------------------------------------------------ server actions
 
 /** Para Server Actions: lanza en vez de redirigir. */
-export async function requireUserAction(roles?: Role[]): Promise<SessionPayload> {
+export async function requireUserAction(
+  roles?: Role[],
+  options: RequireOptions = {},
+): Promise<SessionPayload> {
   const session = await getSession();
   if (!session) throw new Error("Sesión no válida. Vuelve a iniciar sesión.");
 
@@ -164,6 +187,10 @@ export async function requireUserAction(roles?: Role[]): Promise<SessionPayload>
   if (problem) {
     await destroySession();
     throw new Error(PROBLEM_MESSAGES[problem]);
+  }
+
+  if (!options.allowPendingPasswordChange && (await mustChangePassword(session))) {
+    throw new Error("Primero cambia tu contraseña temporal.");
   }
 
   if (roles && !roles.includes(session.role)) {

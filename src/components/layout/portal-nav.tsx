@@ -21,6 +21,7 @@ const LINKS = [
   { href: "/portal", label: "Mi vivienda" },
   { href: "/portal/pagos", label: "Mis pagos" },
   { href: "/portal/servicios", label: "Servicios" },
+  { href: "/portal/cuenta", label: "Mi cuenta" },
 ];
 
 export function PortalNav({ userName }: { userName: string }) {

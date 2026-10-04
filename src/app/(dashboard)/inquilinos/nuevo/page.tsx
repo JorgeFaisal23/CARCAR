@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { requireOrgUser } from "@/lib/auth/session";
 import { getAssignableUnits } from "@/lib/queries/tenants";
 import { NewTenantForm } from "./new-tenant-form";
+import { canEmailLinks } from "@/server/auth/links";
 
 export const metadata: Metadata = { title: "Nuevo inquilino" };
 
@@ -35,7 +36,7 @@ export default async function NewTenantPage({
 
       <Card className="max-w-3xl">
         <CardContent>
-          <NewTenantForm units={units} defaultUnitId={unidad} />
+          <NewTenantForm units={units} defaultUnitId={unidad} canInvite={await canEmailLinks()} />
         </CardContent>
       </Card>
     </>

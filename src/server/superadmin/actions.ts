@@ -1,13 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireSuperadminAction } from "@/lib/auth/session";
 import { isEmailInUse } from "@/lib/db/accounts";
-import { generateTempPassword } from "@/lib/passwords";
 import { slugError } from "@/lib/slug";
+import { deliverAccess, unusablePasswordHash, type AccessDelivery } from "@/server/auth/access";
 import type { ActionResult } from "@/lib/action-result";
 
 /**
@@ -64,12 +63,11 @@ const createSchema = organizationSchema.extend({
 export type CreateOrganizationResult = ActionResult & {
   orgId?: string;
   slug?: string;
-  ownerEmail?: string;
-  /** Se muestra una sola vez; no se guarda en claro en ningún lado. */
-  tempPassword?: string;
+  /** Cómo recibió el dueño su acceso (enlace por correo o contraseña temporal). */
+  delivery?: AccessDelivery;
 };
 
-/** Crea una arrendadora con su dueño y devuelve la contraseña temporal. */
+/** Crea una arrendadora con su dueño y le da acceso. */
 export async function createOrganization(
   _prev: CreateOrganizationResult,
   formData: FormData,
@@ -98,14 +96,13 @@ export async function createOrganization(
   if (slugTaken) return { error: "Ese identificador ya lo usa otra arrendadora." };
   if (emailTaken) return { error: "El correo del dueño ya está registrado en la plataforma." };
 
-  const tempPassword = generateTempPassword();
-  const passwordHash = await bcrypt.hash(tempPassword, 10);
+  const passwordHash = await unusablePasswordHash();
 
-  const org = await prisma.$transaction(async (tx) => {
+  const { org, ownerId } = await prisma.$transaction(async (tx) => {
     const created = await tx.organization.create({
       data: { slug: data.slug, name: data.name, brandName: data.name, plan: data.plan },
     });
-    await tx.user.create({
+    const owner = await tx.user.create({
       data: {
         organizationId: created.id,
         email: data.ownerEmail,
@@ -114,8 +111,10 @@ export async function createOrganization(
         passwordHash,
       },
     });
-    return created;
+    return { org: created, ownerId: owner.id };
   });
+
+  const delivery = await deliverAccess(ownerId, "INVITE");
 
   await logPlatformAction({
     organizationId: org.id,
@@ -125,13 +124,7 @@ export async function createOrganization(
   });
 
   refresh();
-  return {
-    ok: true,
-    orgId: org.id,
-    slug: org.slug,
-    ownerEmail: data.ownerEmail,
-    tempPassword,
-  };
+  return { ok: true, orgId: org.id, slug: org.slug, delivery };
 }
 
 // ------------------------------------------------------------------ edición
@@ -243,13 +236,13 @@ export async function setOrganizationStatus(
 }
 
 /**
- * Nueva contraseña temporal para el dueño de una arrendadora (soporte: perdió
- * el acceso). Cierra su sesión actual. Solo dueños: el equipo y los inquilinos
- * los atiende su propia arrendadora.
+ * Nuevo acceso para el dueño de una arrendadora (soporte: perdió el acceso):
+ * enlace por correo o contraseña temporal. Cierra su sesión actual. Solo
+ * dueños: el equipo y los inquilinos los atiende su propia arrendadora.
  */
 export async function resetOwnerPassword(
   userId: string,
-): Promise<ActionResult & { tempPassword?: string }> {
+): Promise<ActionResult & { delivery?: AccessDelivery }> {
   const session = await requireSuperadminAction();
 
   const owner = await prisma.user.findFirst({
@@ -258,14 +251,7 @@ export async function resetOwnerPassword(
   });
   if (!owner || !owner.organizationId) return { error: "No se encontró al dueño." };
 
-  const tempPassword = generateTempPassword();
-  await prisma.user.update({
-    where: { id: owner.id },
-    data: {
-      passwordHash: await bcrypt.hash(tempPassword, 10),
-      currentSessionId: null,
-    },
-  });
+  const delivery = await deliverAccess(owner.id, "RESET");
 
   await logPlatformAction({
     organizationId: owner.organizationId,
@@ -275,5 +261,5 @@ export async function resetOwnerPassword(
   });
 
   refresh(owner.organizationId);
-  return { ok: true, tempPassword };
+  return { ok: true, delivery };
 }

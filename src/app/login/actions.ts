@@ -1,19 +1,27 @@
 "use server";
 
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import {
   checkSessionProblem,
-  createSession,
   destroySession,
+  FORCED_PASSWORD_PATH,
   getSession,
   loginPathFor,
 } from "@/lib/auth/session";
-import { ORG_COOKIE, ORG_COOKIE_MAX_AGE } from "@/lib/auth/paths";
 import { safeRedirect } from "@/lib/redirect";
+import { SESSION_USER_SELECT, startSession } from "@/server/auth/sign-in";
+import {
+  clearFailures,
+  clientIp,
+  LIMITS,
+  lockedUntil,
+  minutesUntil,
+  registerFailure,
+  throttleKey,
+} from "@/server/auth/throttle";
 
 const loginSchema = z.object({
   email: z.string().trim().toLowerCase().email("Escribe un correo válido."),
@@ -53,9 +61,21 @@ export async function login(
   }
 
   const { email, password, redirigir, orgSlug } = parsed.data;
+
+  // Límite contra fuerza bruta: por cuenta y por IP. Se revisa antes de
+  // comparar la contraseña, así un bloqueo no da pistas sobre ella.
+  const emailKey = throttleKey("email", email);
+  const ipKey = throttleKey("ip", await clientIp());
+  const blockedUntil = await lockedUntil([emailKey, ipKey]);
+  if (blockedUntil) {
+    return {
+      error: `Demasiados intentos fallidos. Espera ${minutesUntil(blockedUntil)} min e inténtalo de nuevo.`,
+    };
+  }
+
   const user = await prisma.user.findUnique({
     where: { email },
-    include: { organization: { select: { slug: true, status: true } } },
+    select: SESSION_USER_SELECT,
   });
 
   const passwordOk = await bcrypt.compare(
@@ -63,18 +83,17 @@ export async function login(
     user?.passwordHash ?? getDummyHash(),
   );
 
-  // Mismo mensaje para usuario inexistente, inactivo y contraseña incorrecta:
-  // no vale la pena revelar cuáles correos existen.
-  if (!user || !user.active || !passwordOk) {
+  // Mismo mensaje para usuario inexistente, inactivo, contraseña incorrecta y
+  // acceso de otra arrendadora: no vale la pena revelar qué correos existen.
+  const wrongOrg = Boolean(orgSlug) && user?.organization?.slug !== orgSlug;
+  if (!user || !user.active || !passwordOk || wrongOrg) {
+    await Promise.all([
+      registerFailure(emailKey, LIMITS.email),
+      registerFailure(ipKey, LIMITS.ip),
+    ]);
     return { error: INVALID };
   }
-
-  // En el acceso con marca solo entran usuarios de esa arrendadora. Se
-  // responde igual que con una contraseña incorrecta: el acceso de una
-  // arrendadora no debe confirmar qué correos existen en otras.
-  if (orgSlug && user.organization?.slug !== orgSlug) {
-    return { error: INVALID };
-  }
+  await clearFailures(emailKey);
 
   // Solo después de comprobar la contraseña se dice que la arrendadora está
   // suspendida: quien la conoce ya demostró que la cuenta es suya.
@@ -85,39 +104,10 @@ export async function login(
     };
   }
 
-  // Un identificador por sesión: al guardarlo, cualquier sesión previa de este
-  // usuario queda invalidada (una sesión activa por persona).
-  const sessionId = crypto.randomUUID();
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { currentSessionId: sessionId },
-  });
+  await startSession(user);
 
-  await createSession({
-    sub: user.id,
-    email: user.email,
-    name: user.name,
-    role: user.role,
-    sessionId,
-    orgId: user.organizationId,
-    orgSlug: user.organization?.slug ?? null,
-  });
-
-  // Recuerda la arrendadora para mandar a su acceso con marca a quien vuelva
-  // sin sesión (ver el proxy). El superadministrador usa el genérico.
-  const store = await cookies();
-  if (user.organization) {
-    store.set(ORG_COOKIE, user.organization.slug, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: ORG_COOKIE_MAX_AGE,
-    });
-  } else {
-    store.delete(ORG_COOKIE);
-  }
-
+  // Con contraseña temporal lo primero es elegir una propia.
+  if (user.mustChangePassword) redirect(FORCED_PASSWORD_PATH);
   redirect(safeRedirect(redirigir, user.role));
 }
 

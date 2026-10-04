@@ -14,7 +14,7 @@ import {
   createOrganization,
   type CreateOrganizationResult,
 } from "@/server/superadmin/actions";
-import { TempPassword } from "../../temp-password";
+import { AccessDeliveryNotice } from "@/components/auth/access-delivery-notice";
 
 function Submit() {
   const { pending } = useFormStatus();
@@ -35,14 +35,13 @@ export function NewOrganizationForm() {
   // Mientras no se edite a mano, el slug sigue al nombre.
   const [slugTouched, setSlugTouched] = useState(false);
 
-  if (state.ok && state.tempPassword && state.ownerEmail) {
+  if (state.ok && state.delivery) {
     return (
       <div className="space-y-5">
         <Callout tone="success" icon={CheckCircle2} title="Arrendadora creada">
-          Su dueño ya puede entrar en <strong>/a/{state.slug}/login</strong> con
-          su correo y esta contraseña temporal.
+          Su dueño entra en <strong>/a/{state.slug}/login</strong>.
         </Callout>
-        <TempPassword email={state.ownerEmail} password={state.tempPassword} />
+        <AccessDeliveryNotice delivery={state.delivery} />
         <div className="flex flex-wrap gap-2">
           <ButtonLink href={`/superadmin/organizaciones/${state.orgId}`}>
             Ver la arrendadora
@@ -115,7 +114,7 @@ export function NewOrganizationForm() {
             label="Correo"
             htmlFor="ownerEmail"
             required
-            hint="Con él entra. Se genera una contraseña temporal."
+            hint="Con él entra. Recibe un enlace por correo o una contraseña temporal."
           >
             <Input
               id="ownerEmail"

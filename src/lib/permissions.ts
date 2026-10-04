@@ -6,7 +6,7 @@ import type { Role } from "@/lib/auth/jwt";
  */
 
 /** Rutas del panel administrativo a las que el rol VIEWER (solo lectura) puede entrar. */
-export const VIEWER_ALLOWED_PREFIXES = ["/dashboard", "/calendario"];
+export const VIEWER_ALLOWED_PREFIXES = ["/dashboard", "/calendario", "/cuenta"];
 
 /** Panel de la plataforma: solo para SUPERADMIN. */
 export const SUPERADMIN_PREFIX = "/superadmin";
@@ -30,8 +30,13 @@ export function canManageOrganization(role: Role) {
   return role === "OWNER";
 }
 
+/** Cambio obligatorio de contraseña: cualquier rol con sesión. */
+const ANY_ROLE_PATHS = ["/cambiar-contrasena"];
+
 /** Decide si un rol puede abrir una ruta concreta. */
 export function canAccessPath(role: Role, pathname: string) {
+  if (ANY_ROLE_PATHS.includes(pathname)) return true;
+
   // La plataforma y las arrendadoras no se mezclan: el superadministrador no
   // ve datos de ninguna arrendadora y nadie más entra a su panel.
   if (role === "SUPERADMIN") return under(pathname, SUPERADMIN_PREFIX);

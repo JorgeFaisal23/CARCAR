@@ -59,21 +59,34 @@ describe("aislamiento entre arrendadoras", () => {
   });
 
   it("toda server action exportada exige sesión antes de hacer nada", () => {
+    // Las únicas acciones públicas: se usan sin sesión por definición.
+    const PUBLIC_ACTIONS = new Set([
+      "public-actions.ts: requestPasswordReset",
+      "public-actions.ts: completePasswordLink",
+    ]);
     const missing: string[] = [];
+    const dirs = ["actions", "superadmin", "auth"].map((d) => join(SRC, "server", d));
 
-    for (const dir of [join(SRC, "server", "actions"), join(SRC, "server", "superadmin")]) {
+    for (const dir of dirs) {
       for (const name of readdirSync(dir)) {
         const source = readFileSync(join(dir, name), "utf8");
         if (!source.startsWith('"use server"')) continue;
 
         const chunks = source.split(/^export async function /m).slice(1);
         for (const chunk of chunks) {
-          const fn = chunk.slice(0, chunk.indexOf("("));
-          if (!/await require\w*Action\(/.test(chunk)) missing.push(`${name}: ${fn}`);
+          const fn = `${name}: ${chunk.slice(0, chunk.indexOf("("))}`;
+          if (PUBLIC_ACTIONS.has(fn)) continue;
+          if (!/await require\w*Action\(/.test(chunk)) missing.push(fn);
         }
       }
     }
     expect(missing).toEqual([]);
+  });
+
+  it("las acciones públicas siguen siendo solo esas", () => {
+    const source = readFileSync(join(SRC, "server", "auth", "public-actions.ts"), "utf8");
+    const exported = [...source.matchAll(/^export async function (\w+)/gm)].map((m) => m[1]);
+    expect(exported.sort()).toEqual(["completePasswordLink", "requestPasswordReset"]);
   });
 
   it("las acciones de plataforma exigen superadministrador", () => {

@@ -24,7 +24,10 @@ export const TENANT_MODELS: ReadonlySet<Prisma.ModelName> = new Set<Prisma.Model
  * Modelos que el cliente con alcance no expone. Cada modelo nuevo debe quedar
  * en TENANT_MODELS, aquí, o ser `Organization`; una prueba lo comprueba.
  */
-export const PLATFORM_MODELS: ReadonlySet<Prisma.ModelName> = new Set<Prisma.ModelName>([]);
+export const PLATFORM_MODELS: ReadonlySet<Prisma.ModelName> = new Set<Prisma.ModelName>([
+  "AuthToken",
+  "LoginThrottle",
+]);
 
 /** Operaciones que filtran por `where`: se les añade la arrendadora. */
 const WHERE_OPERATIONS = new Set([

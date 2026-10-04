@@ -4,10 +4,13 @@ import { brandedPublicSlug, loginPathFor, ORG_COOKIE } from "@/lib/auth/paths";
 import { canAccessPath, homePathFor } from "@/lib/permissions";
 
 /** Páginas de acceso: públicas, pero quien ya tiene sesión va a su inicio. */
-const PUBLIC_PATHS = ["/login"];
+const PUBLIC_PATHS = ["/login", "/recuperar"];
 
 /** Rutas que cualquiera puede abrir, con o sin sesión y sea cual sea su rol. */
 const ALWAYS_ALLOWED = ["/salir"];
+
+/** Enlaces de un solo uso que llegan por correo: /restablecer/{token}, /invitacion/{token}. */
+const TOKEN_LINK = /^\/(restablecer|invitacion)\/[A-Za-z0-9_-]+$/;
 
 /** /a/{slug} sin más: lleva al acceso de esa arrendadora. */
 const ORG_ROOT = /^\/a\/([a-z0-9-]+)\/?$/;
@@ -15,7 +18,9 @@ const ORG_ROOT = /^\/a\/([a-z0-9-]+)\/?$/;
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (ALWAYS_ALLOWED.includes(pathname)) return NextResponse.next();
+  if (ALWAYS_ALLOWED.includes(pathname) || TOKEN_LINK.test(pathname)) {
+    return NextResponse.next();
+  }
 
   const orgRoot = ORG_ROOT.exec(pathname);
   if (orgRoot) {

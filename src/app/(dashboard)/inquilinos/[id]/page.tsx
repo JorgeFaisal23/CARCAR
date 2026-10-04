@@ -24,6 +24,8 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { ButtonLink } from "@/components/shared/button-link";
 import { ReceiptBadge } from "@/components/payments/receipt-viewer";
+import { Callout } from "@/components/shared/callout";
+import { TenantControls } from "./tenant-controls";
 import {
   Card,
   CardContent,
@@ -63,11 +65,13 @@ export async function generateMetadata({
 
 export default async function TenantDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ acceso?: string }>;
 }) {
   const { session, db } = await requireOrgUser(["OWNER", "ADMIN"]);
-  const { id } = await params;
+  const [{ id }, { acceso }] = await Promise.all([params, searchParams]);
   const tenant = await getTenantDetail(db, id);
 
   if (!tenant) notFound();
@@ -100,6 +104,36 @@ export default async function TenantDetailPage({
           ) : null
         }
       />
+
+      {editable ? (
+        <TenantControls
+          tenant={{
+            id: tenant.id,
+            name: tenant.name,
+            email: tenant.email,
+            phone: tenant.phone,
+            documentId: tenant.documentId,
+            notes: tenant.notes,
+            active: tenant.active,
+          }}
+        />
+      ) : null}
+
+      {!tenant.active ? (
+        <Callout tone="warning" title="Acceso al portal desactivado">
+          No puede entrar a su portal. Su historial se conserva.
+        </Callout>
+      ) : null}
+      {acceso === "invitacion" ? (
+        <Callout tone="success" title="Invitación enviada">
+          Le enviamos a {tenant.email} un enlace para crear su contraseña y entrar a su portal.
+        </Callout>
+      ) : null}
+      {acceso === "pendiente" ? (
+        <Callout tone="warning" title="No se pudo enviar la invitación">
+          Genera un acceso con el botón &quot;Acceso al portal&quot; para entregarle una contraseña temporal.
+        </Callout>
+      ) : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
         {/* ------------------------------------------------------- perfil */}

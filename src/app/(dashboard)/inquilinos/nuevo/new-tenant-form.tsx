@@ -31,9 +31,12 @@ function isoToday(monthsAhead = 0) {
 export function NewTenantForm({
   units,
   defaultUnitId,
+  canInvite = false,
 }: {
   units: { id: string; code: string; buildingName: string; baseRent: number }[];
   defaultUnitId?: string;
+  /** Hay correo configurado: sin contraseña temporal se le manda una invitación. */
+  canInvite?: boolean;
 }) {
   const [state, formAction] = useActionState<ActionResult, FormData>(
     createTenant,
@@ -79,7 +82,12 @@ export function NewTenantForm({
         <Field
           label="Contraseña temporal"
           htmlFor="password"
-          hint="Mínimo 8 caracteres. Compártela con el inquilino por un medio seguro."
+          required={!canInvite}
+          hint={
+            canInvite
+              ? "Déjala vacía para enviarle una invitación por correo. Si la escribes (mínimo 8 caracteres), entrégasela tú; al entrar se le pedirá cambiarla."
+              : "Mínimo 8 caracteres. Entrégasela por un medio seguro; al entrar se le pedirá cambiarla."
+          }
         >
           <Input
             id="password"
@@ -87,7 +95,7 @@ export function NewTenantForm({
             type="text"
             autoComplete="new-password"
             minLength={8}
-            required
+            required={!canInvite}
           />
         </Field>
 

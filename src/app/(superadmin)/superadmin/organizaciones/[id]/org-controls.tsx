@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
-import { KeyRound, PauseCircle, PlayCircle, Sparkles } from "lucide-react";
+import { PauseCircle, PlayCircle, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +24,7 @@ import {
   setOrganizationStatus,
   updateOrganization,
 } from "@/server/superadmin/actions";
-import { TempPassword } from "../../temp-password";
+import { ResetAccessDialog } from "@/components/auth/reset-access-dialog";
 
 function SaveButton() {
   const { pending } = useFormStatus();
@@ -101,7 +101,7 @@ export function PlanControl({ orgId, plan }: { orgId: string; plan: "FREE" | "PR
 
   return (
     <Button
-      variant={plan === "PREMIUM" ? "outline" : "default"}
+      variant="outline"
       disabled={pending}
       onClick={() =>
         startTransition(async () => {
@@ -185,59 +185,13 @@ export function StatusControl({
   );
 }
 
-/** Nueva contraseña temporal para un dueño que perdió el acceso. */
+/** Nuevo acceso para un dueño que lo perdió (enlace por correo o contraseña temporal). */
 export function ResetOwnerPassword({ userId, email }: { userId: string; email: string }) {
-  const [open, setOpen] = useState(false);
-  const [password, setPassword] = useState<string>();
-  const [pending, startTransition] = useTransition();
-
   return (
-    <AlertDialog
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (!next) setPassword(undefined);
-      }}
-    >
-      <AlertDialogTrigger
-        render={
-          <Button variant="outline" size="sm">
-            <KeyRound className="size-4" aria-hidden />
-            Restablecer contraseña
-          </Button>
-        }
-      />
-      <AlertDialogContent className="sm:max-w-md">
-        <AlertDialogHeader>
-          <AlertDialogTitle>Restablecer contraseña</AlertDialogTitle>
-          <AlertDialogDescription>
-            {password
-              ? "Listo. Su sesión anterior se cerró."
-              : `Se genera una contraseña temporal para ${email} y se cierra su sesión actual.`}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        {password ? <TempPassword email={email} password={password} /> : null}
-        <AlertDialogFooter>
-          <AlertDialogCancel>{password ? "Cerrar" : "Cancelar"}</AlertDialogCancel>
-          {password ? null : (
-            <Button
-              disabled={pending}
-              onClick={() =>
-                startTransition(async () => {
-                  const result = await resetOwnerPassword(userId);
-                  if (result.error || !result.tempPassword) {
-                    toast.error(result.error ?? "No se pudo restablecer.");
-                    return;
-                  }
-                  setPassword(result.tempPassword);
-                })
-              }
-            >
-              {pending ? "Generando…" : "Generar contraseña"}
-            </Button>
-          )}
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <ResetAccessDialog
+      email={email}
+      action={() => resetOwnerPassword(userId)}
+      label="Restablecer acceso"
+    />
   );
 }

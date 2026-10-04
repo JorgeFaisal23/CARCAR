@@ -85,26 +85,60 @@ enum Role {
 /// para cualquiera y el acceso con marca rechaza a usuarios de otra arrendadora.
 /// `organizationId` es nulo solo para SUPERADMIN (lo impone un CHECK en SQL).
 model User {
-  id               String        @id @default(cuid())
-  organizationId   String?
-  organization     Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
-  email            String        @unique
-  passwordHash     String
-  name             String
-  phone            String?
-  documentId       String? // identificación oficial
-  role             Role          @default(TENANT)
-  active           Boolean       @default(true)
-  currentSessionId String?
-  notes            String?
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  id                 String        @id @default(cuid())
+  organizationId     String?
+  organization       Organization? @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  email              String        @unique
+  passwordHash       String
+  name               String
+  phone              String?
+  documentId         String? // identificación oficial
+  role               Role          @default(TENANT)
+  active             Boolean       @default(true)
+  currentSessionId   String?
+  /// Contraseña temporal (alta o restablecimiento): debe cambiarla al entrar.
+  mustChangePassword Boolean       @default(false)
+  passwordChangedAt  DateTime?
+  notes              String?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
 
-  leases    Lease[]
-  bookings  Booking[]
-  auditLogs AuditLog[]
+  leases     Lease[]
+  bookings   Booking[]
+  auditLogs  AuditLog[]
+  authTokens AuthToken[]
 
   @@index([organizationId, role])
+}
+
+enum TokenPurpose {
+  RESET // restablecer contraseña olvidada
+  INVITE // primera contraseña de una cuenta creada por otra persona
+}
+
+/// Enlaces de un solo uso que llegan por correo. Solo se guarda el hash del
+/// token: quien lea la base no puede usar los enlaces.
+model AuthToken {
+  id        String       @id @default(cuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String       @unique
+  purpose   TokenPurpose
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime     @default(now())
+
+  @@index([userId])
+}
+
+/// Intentos de acceso fallidos por correo o por IP (límite contra fuerza bruta).
+/// En la base y no en memoria: sobrevive reinicios y sirve con varias réplicas.
+model LoginThrottle {
+  key         String    @id // "email:…" o "ip:…"
+  failures    Int       @default(0)
+  windowStart DateTime  @default(now())
+  lockedUntil DateTime?
+  updatedAt   DateTime  @updatedAt
 }
 
 // ---------------------------------------------------------------- Propiedades

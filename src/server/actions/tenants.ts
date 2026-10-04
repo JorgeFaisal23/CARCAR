@@ -8,7 +8,10 @@ import { requireOrgUserAction } from "@/lib/auth/session";
 import { logAction } from "@/server/actions/audit";
 import { isEmailInUse } from "@/lib/db/accounts";
 import { unitExists } from "@/lib/db/guards";
+import type { OrgDb } from "@/lib/db/scoped";
 import type { ActionResult } from "@/lib/action-result";
+import { canEmailLinks } from "@/server/auth/links";
+import { deliverAccess, unusablePasswordHash, type AccessDelivery } from "@/server/auth/access";
 
 /**
  * Alta de inquilino. Crea el perfil y, si se indicó una unidad, el contrato
@@ -21,9 +24,8 @@ const tenantSchema = z.object({
   phone: z.string().trim().optional(),
   documentId: z.string().trim().optional(),
   notes: z.string().trim().optional(),
-  password: z
-    .string({ error: "Escribe una contraseña temporal." })
-    .min(8, "La contraseña debe tener al menos 8 caracteres."),
+  /** Opcional si hay correo: sin contraseña se le manda una invitación. */
+  password: z.string().min(8, "La contraseña temporal debe tener al menos 8 caracteres.").optional(),
 });
 
 const leaseSchema = z.object({
@@ -98,10 +100,17 @@ export async function createTenant(
     leaseData = leaseParsed.data;
   }
 
-  // La contraseña temporal permite al inquilino entrar al portal desde el día
-  // uno. Nunca hay una contraseña por defecto: una conocida por todos sería
-  // una puerta abierta a cualquier cuenta nueva.
-  const passwordHash = await bcrypt.hash(parsed.data.password, 10);
+  // Dos formas de darle acceso al portal: una contraseña temporal que el
+  // arrendador le entrega (y que deberá cambiar al entrar) o, si hay correo
+  // configurado, una invitación para que elija la suya. Nunca una contraseña
+  // por defecto: una conocida por todos abriría cualquier cuenta nueva.
+  const invite = !parsed.data.password;
+  if (invite && !(await canEmailLinks())) {
+    return { error: "Escribe una contraseña temporal para que pueda entrar al portal." };
+  }
+  const passwordHash = parsed.data.password
+    ? await bcrypt.hash(parsed.data.password, 10)
+    : await unusablePasswordHash();
 
   // Perfil, contrato y estado de la unidad se guardan juntos: si algo falla
   // no queda un inquilino a medias ni una unidad ocupada sin contrato.
@@ -116,6 +125,7 @@ export async function createTenant(
         notes: parsed.data.notes,
         role: "TENANT",
         passwordHash,
+        mustChangePassword: !invite,
       },
     });
 
@@ -145,10 +155,86 @@ export async function createTenant(
 
   await logAction(db, session.sub, "Alta de inquilino", "User", tenant.id, tenant.name);
 
+  // La invitación sale después de guardar: si el correo fallara, deliverAccess
+  // cae a una contraseña temporal que no se podría mostrar tras redirigir, así
+  // que en ese caso se avisa en la ficha para generar otra.
+  let invited = false;
+  if (invite) {
+    const delivery = await deliverAccess(tenant.id, "INVITE");
+    invited = delivery.method === "email";
+  }
+
   revalidatePath("/inquilinos");
   revalidatePath("/edificios");
   revalidatePath("/dashboard");
-  redirect(`/inquilinos/${tenant.id}`);
+  redirect(
+    invite
+      ? `/inquilinos/${tenant.id}?acceso=${invited ? "invitacion" : "pendiente"}`
+      : `/inquilinos/${tenant.id}`,
+  );
+}
+
+/** Un inquilino de esta arrendadora. */
+async function findTenant(db: OrgDb, tenantId: string) {
+  return db.user.findFirst({
+    where: { id: tenantId, role: "TENANT" },
+    select: { id: true, name: true, active: true },
+  });
+}
+
+/**
+ * Desactivar corta su acceso al portal (cierra su sesión) sin borrar su
+ * historial. Con un contrato vigente no se puede: primero se termina.
+ */
+export async function setTenantActive(tenantId: string, active: boolean): Promise<ActionResult> {
+  const { session, db } = await requireOrgUserAction(["OWNER", "ADMIN"]);
+
+  const tenant = await findTenant(db, tenantId);
+  if (!tenant) return { error: "No se encontró al inquilino." };
+  if (tenant.active === active) return { ok: true };
+
+  if (!active) {
+    const lease = await db.lease.findFirst({
+      where: { tenantId, status: "ACTIVE" },
+      select: { id: true },
+    });
+    if (lease) {
+      return { error: "Tiene un contrato vigente. Termina el contrato antes de desactivarlo." };
+    }
+  }
+
+  await db.user.update({
+    where: { id: tenant.id },
+    data: active ? { active: true } : { active: false, currentSessionId: null },
+  });
+  await logAction(
+    db,
+    session.sub,
+    active ? "Reactivación de inquilino" : "Desactivación de inquilino",
+    "User",
+    tenant.id,
+    tenant.name,
+  );
+
+  revalidatePath(`/inquilinos/${tenant.id}`);
+  revalidatePath("/inquilinos");
+  return { ok: true };
+}
+
+/** Nuevo acceso al portal para un inquilino que perdió su contraseña. */
+export async function resetTenantAccess(
+  tenantId: string,
+): Promise<ActionResult & { delivery?: AccessDelivery }> {
+  const { session, db } = await requireOrgUserAction(["OWNER", "ADMIN"]);
+
+  const tenant = await findTenant(db, tenantId);
+  if (!tenant) return { error: "No se encontró al inquilino." };
+  if (!tenant.active) return { error: "Reactiva al inquilino antes de darle acceso." };
+
+  const delivery = await deliverAccess(tenant.id, "RESET");
+  await logAction(db, session.sub, "Restablecimiento de acceso", "User", tenant.id, tenant.name);
+  revalidatePath(`/inquilinos/${tenant.id}`);
+  return { ok: true, delivery };
 }
 
 const updateSchema = tenantSchema.omit({ password: true });

@@ -53,6 +53,7 @@ const MAIN_NAV: NavItem[] = [
   { href: "/servicios", label: "Servicios", icon: Receipt },
   { href: "/pagos", label: "Cobros", icon: Banknote },
   { href: "/inquilinos", label: "Inquilinos", icon: Users },
+  { href: "/equipo", label: "Equipo", icon: Users2 },
   {
     href: "/integraciones",
     label: "Integraciones",
@@ -65,7 +66,6 @@ const PREMIUM_NAV: NavItem[] = [
   { href: "/reportes", label: "Reportes", icon: BarChart3, premium: true },
   { href: "/automatizaciones", label: "Automatizaciones", icon: Workflow, premium: true },
   { href: "/contratos", label: "Contratos", icon: FileSignature, premium: true },
-  { href: "/equipo", label: "Equipo", icon: Users2, premium: true },
 ];
 
 export function AppSidebar({

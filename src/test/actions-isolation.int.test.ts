@@ -42,7 +42,10 @@ const { markChargePaid, markChargeUnpaid } = await import("@/server/actions/paym
 const { createUnit, updateUnit, updateServiceAccount, createUnitServiceAccount } =
   await import("@/server/actions/properties");
 const { setServiceAmount } = await import("@/server/actions/services");
-const { createTenant, updateTenant } = await import("@/server/actions/tenants");
+const { createTenant, updateTenant, setTenantActive, resetTenantAccess } = await import(
+  "@/server/actions/tenants",
+);
+const { changeStaffRole, setStaffActive, resetStaffAccess } = await import("@/server/actions/team");
 const { syncAirbnbConnection, syncAllConnections } = await import("@/server/actions/integrations");
 const { updateBrand } = await import("@/server/actions/brand");
 
@@ -51,20 +54,21 @@ let b: OrgFixture;
 
 /** Foto de las filas de B que las acciones podrían tocar. */
 async function snapshotB() {
-  const [charge, unit, account, serviceCharges, tenant, connection, org, buildings, units, users] =
+  const [charge, unit, account, serviceCharges, tenant, owner, connection, org, buildings, units, users] =
     await Promise.all([
       prisma.rentCharge.findUniqueOrThrow({ where: { id: b.charge.id } }),
       prisma.unit.findUniqueOrThrow({ where: { id: b.unit.id } }),
       prisma.serviceAccount.findUniqueOrThrow({ where: { id: b.account.id } }),
       prisma.serviceCharge.findMany({ where: { serviceAccountId: b.account.id } }),
       prisma.user.findUniqueOrThrow({ where: { id: b.tenant.id } }),
+      prisma.user.findUniqueOrThrow({ where: { id: b.owner.id } }),
       prisma.airbnbConnection.findUniqueOrThrow({ where: { id: b.connection.id } }),
       prisma.organization.findUniqueOrThrow({ where: { id: b.organizationId } }),
       prisma.building.count({ where: { organizationId: b.organizationId } }),
       prisma.unit.count({ where: { organizationId: b.organizationId } }),
       prisma.user.count({ where: { organizationId: b.organizationId } }),
     ]);
-  return { charge, unit, account, serviceCharges, tenant, connection, org, buildings, units, users };
+  return { charge, unit, account, serviceCharges, tenant, owner, connection, org, buildings, units, users };
 }
 
 function form(fields: Record<string, string>) {
@@ -153,6 +157,14 @@ describe("server actions con ids de otra arrendadora", () => {
     expect(
       await createTenant({}, form({ name: "Duplicado", email: b.tenant.email, password: "contrasena-segura" })),
     ).toHaveProperty("error");
+  });
+
+  it("acceso de inquilinos y equipo", async () => {
+    expect(await setTenantActive(b.tenant.id, false)).toHaveProperty("error");
+    expect(await resetTenantAccess(b.tenant.id)).toHaveProperty("error");
+    expect(await changeStaffRole(b.owner.id, "VIEWER")).toHaveProperty("error");
+    expect(await setStaffActive(b.owner.id, false)).toHaveProperty("error");
+    expect(await resetStaffAccess(b.owner.id)).toHaveProperty("error");
   });
 
   it("integraciones", async () => {

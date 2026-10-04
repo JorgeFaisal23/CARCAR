@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { LogIn, ShieldAlert } from "lucide-react";
@@ -102,6 +103,15 @@ export function LoginForm({
         ) : null}
 
         <SubmitButton />
+
+        <p className="text-center text-sm">
+          <Link
+            href={orgSlug ? `/a/${orgSlug}/recuperar` : "/recuperar"}
+            className="text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
+          >
+            ¿Olvidaste tu contraseña?
+          </Link>
+        </p>
       </form>
 
       {demoAccounts.length > 0 ? (

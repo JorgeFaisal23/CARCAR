@@ -1,13 +1,10 @@
 import type { Metadata } from "next";
-import { brandStyleSheet } from "@/lib/brand";
+import { OrgBrandStyle } from "@/components/shared/org-brand-style";
 import { getOrgBySlug } from "@/lib/org";
 
 /**
- * Páginas públicas de una arrendadora (/a/{slug}/…): su acceso con marca.
- *
- * El layout raíz pinta la marca del producto porque aquí aún no hay sesión;
- * este layout agrega los tokens de la arrendadora. Van después en el
- * documento y con los mismos selectores, así que ganan.
+ * Páginas públicas de una arrendadora (/a/{slug}/…): su acceso y su
+ * recuperación de contraseña, con su marca.
  */
 
 type Params = { params: Promise<{ slug: string }> };
@@ -32,15 +29,9 @@ export default async function OrgPublicLayout({
   // hacer; el acceso, por ejemplo, manda al genérico.
   if (!org) return children;
 
-  const brandCss = brandStyleSheet({
-    primaryColor: org.primaryColor,
-    radius: org.radius,
-    fontFamily: org.fontFamily,
-  });
-
   return (
     <>
-      <style id="org-brand-tokens" dangerouslySetInnerHTML={{ __html: brandCss }} />
+      <OrgBrandStyle brand={org} />
       {children}
     </>
   );

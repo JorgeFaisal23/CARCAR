@@ -70,6 +70,28 @@ la cuenta de la plataforma:
 
   Imprime una contraseña temporal una sola vez.
 
+## Cuentas y contraseñas
+
+- **Alta de cuentas** (dueño desde la plataforma, equipo desde *Equipo*,
+  inquilinos desde *Inquilinos*): con correo configurado, la persona recibe un
+  enlace para elegir su contraseña (vence en 7 días). Sin correo, quien hace el
+  alta ve una contraseña temporal una sola vez para entregarla.
+- **Contraseña temporal:** al entrar con ella se pide elegir una propia
+  (`/cambiar-contrasena`) y no se puede usar la app hasta hacerlo.
+- **Olvidé mi contraseña** (`/recuperar`, `/a/{slug}/recuperar`): con correo,
+  manda un enlace que vence en 1 hora y sirve una vez. La respuesta es la misma
+  exista o no la cuenta. Sin correo, remite al administrador, que puede
+  restablecer el acceso desde *Equipo* o desde la ficha del inquilino.
+- **Mi cuenta** (`/cuenta`, `/portal/cuenta`, `/superadmin/cuenta`): cambio
+  voluntario, pidiendo la contraseña actual. Cambiarla cierra las demás sesiones.
+- **Límite de intentos:** 5 contraseñas incorrectas por correo (o 30 por IP) en
+  15 minutos bloquean esa cuenta 15 minutos.
+- **Equipo:** solo el dueño lo administra. El plan gratuito incluye un usuario
+  de equipo además del dueño.
+- Variables: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` y
+  `APP_URL` (base de los enlaces; obligatoria en producción para mandarlos).
+  Ver `.env.example`.
+
 ## Varias arrendadoras en la misma app
 
 Cada tabla con datos de una arrendadora lleva `organizationId`. Las páginas y

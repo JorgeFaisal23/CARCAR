@@ -49,14 +49,14 @@ try {
   } else {
     const password = tempPassword();
     await client.query(
-      `INSERT INTO "User" ("id", "email", "passwordHash", "name", "role", "updatedAt")
-       VALUES ($1, $2, $3, $4, 'SUPERADMIN', CURRENT_TIMESTAMP)`,
+      `INSERT INTO "User" ("id", "email", "passwordHash", "name", "role", "mustChangePassword", "updatedAt")
+       VALUES ($1, $2, $3, $4, 'SUPERADMIN', true, CURRENT_TIMESTAMP)`,
       [randomUUID(), email, await bcrypt.hash(password, 10), name],
     );
     console.log(`Superadministrador creado en ${new URL(url).host}`);
     console.log(`  Correo:     ${email}`);
     console.log(`  Contraseña: ${password}   (temporal; no se volverá a mostrar)`);
-    console.log("Entra por /login.");
+    console.log("Entra por /login; al entrar se te pedirá elegir una contraseña propia.");
   }
 } finally {
   await client.end();

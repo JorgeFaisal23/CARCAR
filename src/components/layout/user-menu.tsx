@@ -1,7 +1,8 @@
 "use client";
 
 import { useTheme } from "next-themes";
-import { ChevronsUpDown, LogOut, Moon, Sun } from "lucide-react";
+import Link from "next/link";
+import { ChevronsUpDown, LogOut, Moon, Sun, UserRound } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -65,6 +66,10 @@ export function UserMenu({
               </p>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
+            <DropdownMenuItem render={<Link href="/cuenta" />}>
+              <UserRound className="size-4" aria-hidden />
+              Mi cuenta
+            </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => setTheme(isDark ? "light" : "dark")}
             >
