@@ -11,6 +11,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { requireOrgUser } from "@/lib/auth/session";
 import { canEdit } from "@/lib/permissions";
 import { getTenants } from "@/lib/queries/tenants";
+import { UserQuotaNote } from "@/components/shared/user-quota-note";
+import { userQuota } from "@/server/user-quota";
 import { deadlineLabel, initials, shortDate } from "@/lib/format";
 import { CHARGE_STATUS_LABELS, CHARGE_STATUS_TONES } from "@/lib/labels";
 import { cn } from "@/lib/utils";
@@ -19,7 +21,7 @@ export const metadata: Metadata = { title: "Inquilinos" };
 
 export default async function TenantsPage() {
   const { session, db } = await requireOrgUser(["OWNER", "ADMIN"]);
-  const tenants = await getTenants(db);
+  const [tenants, quota] = await Promise.all([getTenants(db), userQuota(db)]);
   const editable = canEdit(session.role);
 
   const withLease = tenants.filter((t) => t.hasLease).length;
@@ -42,6 +44,8 @@ export default async function TenantsPage() {
           ) : null
         }
       />
+
+      {editable ? <UserQuotaNote active={quota.active} max={quota.max} /> : null}
 
       {tenants.length === 0 ? (
         <EmptyState

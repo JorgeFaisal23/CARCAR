@@ -5,7 +5,7 @@ import { z } from "zod";
 import { requireOrgUserAction } from "@/lib/auth/session";
 import { isEmailInUse } from "@/lib/db/accounts";
 import type { OrgDb } from "@/lib/db/scoped";
-import { limitError } from "@/lib/plans";
+import { userQuotaErrorFor } from "@/server/user-quota";
 import { deliverAccess, unusablePasswordHash, type AccessDelivery } from "@/server/auth/access";
 import { logAction } from "@/server/actions/audit";
 import type { ActionResult } from "@/lib/action-result";
@@ -20,16 +20,6 @@ export type AccessResult = ActionResult & { delivery?: AccessDelivery };
 
 const STAFF_ROLES = ["ADMIN", "VIEWER"] as const;
 const staffRole = z.enum(STAFF_ROLES);
-
-/** Usuarios de equipo activos (sin contar al dueño), para el límite del plan. */
-async function activeStaffCount(db: OrgDb) {
-  return db.user.count({ where: { role: { in: [...STAFF_ROLES] }, active: true } });
-}
-
-async function planOf(db: OrgDb) {
-  const org = await db.organization.findFirstOrThrow({ select: { plan: true } });
-  return org.plan;
-}
 
 /** Un miembro del equipo de esta arrendadora (nunca el dueño ni un inquilino). */
 async function findStaff(db: OrgDb, userId: string) {
@@ -61,7 +51,7 @@ export async function inviteStaff(_prev: AccessResult, formData: FormData): Prom
     return { error: parsed.error.issues[0]?.message ?? "Revisa los datos." };
   }
 
-  const overLimit = limitError(await planOf(db), "staff", await activeStaffCount(db));
+  const overLimit = await userQuotaErrorFor(db);
   if (overLimit) return { error: overLimit };
   if (await isEmailInUse(parsed.data.email)) {
     return { error: "Ese correo ya está registrado. Usa otro." };
@@ -98,7 +88,7 @@ export async function changeStaffRole(userId: string, role: "ADMIN" | "VIEWER"):
 
 /**
  * Desactivar corta el acceso de inmediato (cierra su sesión) sin borrar su
- * historial. Reactivar cuenta contra el límite del plan.
+ * historial. Reactivar ocupa un usuario contratado.
  */
 export async function setStaffActive(userId: string, active: boolean): Promise<ActionResult> {
   const { session, db } = await requireOrgUserAction(["OWNER"]);
@@ -108,7 +98,7 @@ export async function setStaffActive(userId: string, active: boolean): Promise<A
   if (member.active === active) return { ok: true };
 
   if (active) {
-    const overLimit = limitError(await planOf(db), "staff", await activeStaffCount(db));
+    const overLimit = await userQuotaErrorFor(db);
     if (overLimit) return { error: overLimit };
   }
 

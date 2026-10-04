@@ -46,6 +46,16 @@ describe("aislamiento entre arrendadoras", () => {
     expect([...classified].sort()).toEqual(Object.values(ModelName).sort());
   });
 
+  it("solo la plataforma escribe los usuarios contratados", () => {
+    // Fuera de src/server/superadmin/ el campo solo se lee (`maxUsers: true`).
+    const offenders = walk(join(SRC, "server"))
+      .concat(walk(join(SRC, "app")).filter((file) => /actions\.ts$/.test(file)))
+      .map(rel)
+      .filter((file) => !file.startsWith("src/server/superadmin/"))
+      .filter((file) => /maxUsers\s*:(?!\s*true\b)/.test(readFileSync(join(ROOT, file), "utf8")));
+    expect(offenders).toEqual([]);
+  });
+
   it("solo los módulos de plataforma importan el cliente sin alcance", () => {
     const offenders = walk(SRC)
       .map(rel)

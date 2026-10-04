@@ -7,6 +7,8 @@ import { requireOrgUser } from "@/lib/auth/session";
 import { getAssignableUnits } from "@/lib/queries/tenants";
 import { NewTenantForm } from "./new-tenant-form";
 import { canEmailLinks } from "@/server/auth/links";
+import { UserQuotaNote } from "@/components/shared/user-quota-note";
+import { userQuota } from "@/server/user-quota";
 
 export const metadata: Metadata = { title: "Nuevo inquilino" };
 
@@ -17,7 +19,7 @@ export default async function NewTenantPage({
 }) {
   const { db } = await requireOrgUser(["OWNER", "ADMIN"]);
   const { unidad } = await searchParams;
-  const units = await getAssignableUnits(db);
+  const [units, quota] = await Promise.all([getAssignableUnits(db), userQuota(db)]);
 
   return (
     <>
@@ -33,6 +35,8 @@ export default async function NewTenantPage({
         title="Nuevo inquilino"
         description="Se crea su perfil y su acceso al portal. Si ya sabes qué unidad ocupará, puedes registrar el contrato en el mismo paso."
       />
+
+      {quota.full ? <UserQuotaNote active={quota.active} max={quota.max} /> : null}
 
       <Card className="max-w-3xl">
         <CardContent>

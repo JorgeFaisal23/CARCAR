@@ -18,6 +18,7 @@ import {
   type LeaseTerms,
 } from "@/server/actions/lease-rules";
 import { deliverAccess, unusablePasswordHash, type AccessDelivery } from "@/server/auth/access";
+import { userQuotaErrorFor } from "@/server/user-quota";
 
 /**
  * Alta de inquilino. Crea el perfil y, si se indicó una unidad, el contrato
@@ -53,6 +54,10 @@ export async function createTenant(
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Revisa los datos." };
   }
+
+  // Cada inquilino con acceso ocupa un usuario contratado.
+  const overQuota = await userQuotaErrorFor(db);
+  if (overQuota) return { error: overQuota };
 
   // El correo es único en toda la plataforma, no solo en esta arrendadora.
   if (await isEmailInUse(parsed.data.email)) {
@@ -149,7 +154,8 @@ async function findTenant(db: OrgDb, tenantId: string) {
 
 /**
  * Desactivar corta su acceso al portal (cierra su sesión) sin borrar su
- * historial. Con un contrato vigente no se puede: primero se termina.
+ * historial y libera su usuario contratado. Con un contrato vigente no se
+ * puede: primero se termina. Reactivar ocupa un usuario contratado.
  */
 export async function setTenantActive(tenantId: string, active: boolean): Promise<ActionResult> {
   const { session, db } = await requireOrgUserAction(["OWNER", "ADMIN"]);
@@ -158,7 +164,10 @@ export async function setTenantActive(tenantId: string, active: boolean): Promis
   if (!tenant) return { error: "No se encontró al inquilino." };
   if (tenant.active === active) return { ok: true };
 
-  if (!active) {
+  if (active) {
+    const overQuota = await userQuotaErrorFor(db);
+    if (overQuota) return { error: overQuota };
+  } else {
     const lease = await db.lease.findFirst({
       where: { tenantId, status: "ACTIVE" },
       select: { id: true },

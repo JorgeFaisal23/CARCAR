@@ -23,6 +23,8 @@ import { requireOrgUser } from "@/lib/auth/session";
 import { requireCurrentOrg } from "@/lib/org";
 import { cn } from "@/lib/utils";
 import { PLAN_LIMITS } from "@/lib/plans";
+import { UserQuotaNote } from "@/components/shared/user-quota-note";
+import { userQuota } from "@/server/user-quota";
 import { ComingSoonBadge } from "@/components/premium/coming-soon-badge";
 
 export const metadata: Metadata = { title: "Planes" };
@@ -61,7 +63,6 @@ const FEATURES: { group: string; items: Feature[] }[] = [
     items: [
       { name: "Portal para inquilinos", free: true, premium: true },
       { name: "Personalización de marca", free: true, premium: true },
-      { name: "Usuarios de equipo además del dueño", free: "1", premium: "Ilimitados" },
       { name: "Bitácora de auditoría", free: false, premium: true },
     ],
   },
@@ -72,12 +73,12 @@ export default async function PremiumPage() {
   const org = await requireCurrentOrg();
   const isPremium = org.plan === "PREMIUM";
   const supportEmail = process.env.SUPPORT_EMAIL?.trim();
-  const [buildings, units, staff] = await Promise.all([
+  const [buildings, units, quota] = await Promise.all([
     db.building.count(),
     db.unit.count(),
-    db.user.count({ where: { role: { in: ["ADMIN", "VIEWER"] }, active: true } }),
+    userQuota(db),
   ]);
-  const usage = { buildings, units, staff };
+  const usage = { buildings, units };
 
   return (
     <>
@@ -115,11 +116,10 @@ export default async function PremiumPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <dl className="grid gap-4 sm:grid-cols-3">
+            <dl className="grid gap-4 sm:grid-cols-2">
               {[
                 { label: "Propiedades", used: usage.buildings, limit: PLAN_LIMITS.FREE.buildings },
                 { label: "Unidades", used: usage.units, limit: PLAN_LIMITS.FREE.units },
-                { label: "Usuarios de equipo", used: usage.staff, limit: PLAN_LIMITS.FREE.staff },
               ].map((item) => (
                 <div key={item.label}>
                   <dt className="text-muted-foreground text-sm">{item.label}</dt>
@@ -133,6 +133,20 @@ export default async function PremiumPage() {
           </CardContent>
         </Card>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Usuarios contratados</CardTitle>
+          <CardDescription>
+            Los usuarios se contratan aparte del plan: cada cuenta activa (tú, tu
+            equipo y tus inquilinos con acceso al portal) ocupa uno. Premium no
+            los cambia; para sumar más, habla con {APP.name}.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <UserQuotaNote active={quota.active} max={quota.max} />
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <PlanCard
@@ -158,7 +172,7 @@ export default async function PremiumPage() {
           highlights={[
             "Propiedades y unidades ilimitadas",
             "Reportes de rentabilidad y ocupación",
-            "Equipo sin límite y bitácora de auditoría",
+            "Bitácora de auditoría",
           ]}
         />
       </div>

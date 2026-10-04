@@ -47,7 +47,9 @@ const { createAuthToken } = await import("@/server/auth/tokens");
 const { inviteStaff, changeStaffRole, setStaffActive, resetStaffAccess } = await import(
   "@/server/actions/team"
 );
-const { setTenantActive, resetTenantAccess } = await import("@/server/actions/tenants");
+const { createTenant, setTenantActive, resetTenantAccess } = await import(
+  "@/server/actions/tenants"
+);
 const { login } = await import("@/app/login/actions");
 
 let a: OrgFixture;
@@ -160,20 +162,33 @@ describe("equipo", () => {
     ).rejects.toThrow(/permiso/);
   });
 
-  it("respeta el límite del plan gratuito", async () => {
+  it("respeta los usuarios contratados: dueño, equipo e inquilinos", async () => {
     await actAs(a.owner.id);
-    const email = `nuevo-${randomUUID().slice(0, 8)}@test.mx`;
+    const setMaxUsers = (maxUsers: number) =>
+      prisma.organization.update({ where: { id: a.organizationId }, data: { maxUsers } });
+    const activeUsers = () =>
+      prisma.user.count({ where: { organizationId: a.organizationId, active: true } });
+    const newEmail = () => `cupo-${randomUUID().slice(0, 8)}@test.mx`;
 
-    // Ya hay un administrativo activo: el plan gratuito no admite otro.
-    expect(await inviteStaff({}, form({ name: "Nuevo Usuario", email, role: "VIEWER" }))).toHaveProperty(
-      "error",
-    );
+    // Dueño, inquilino y administrativo activos: 3 de 3.
+    await setMaxUsers(3);
+    expect(await activeUsers()).toBe(3);
+    const full = await inviteStaff({}, form({ name: "Nuevo Usuario", email: newEmail(), role: "VIEWER" }));
+    expect(full.error).toMatch(/contratados 3 usuarios/);
 
+    // Premium no da usuarios.
+    await prisma.organization.update({ where: { id: a.organizationId }, data: { plan: "PREMIUM" } });
+    expect(
+      await inviteStaff({}, form({ name: "Nuevo Usuario", email: newEmail(), role: "VIEWER" })),
+    ).toHaveProperty("error");
+
+    // Desactivar libera un lugar.
     expect(await setStaffActive(adminA.id, false)).toEqual({ ok: true });
     const off = await prisma.user.findUniqueOrThrow({ where: { id: adminA.id } });
     expect(off.active).toBe(false);
     expect(off.currentSessionId).toBeNull();
 
+    const email = newEmail();
     const invited = await inviteStaff({}, form({ name: "Nuevo Usuario", email, role: "VIEWER" }));
     expect(invited.ok).toBe(true);
     expect(invited.delivery?.method).toBe("password");
@@ -181,8 +196,41 @@ describe("equipo", () => {
     expect(created.organizationId).toBe(a.organizationId);
     expect(created.mustChangePassword).toBe(true);
 
-    // Reactivar al primero rebasaría el límite.
+    // Reactivar al primero rebasaría lo contratado.
     expect(await setStaffActive(adminA.id, true)).toHaveProperty("error");
+
+    // Los inquilinos también ocupan lugar: alta y reactivación.
+    expect(
+      await createTenant(
+        {},
+        form({ name: "Inquilino Nuevo", email: newEmail(), password: "temporal-1234" }),
+      ),
+    ).toHaveProperty("error");
+    const formerTenant = await prisma.user.create({
+      data: {
+        organizationId: a.organizationId,
+        email: newEmail(),
+        name: "Exinquilino",
+        role: "TENANT",
+        passwordHash: "x",
+        active: false,
+      },
+    });
+    expect(await setTenantActive(formerTenant.id, true)).toHaveProperty("error");
+
+    // Bajar lo contratado no saca a nadie.
+    await setMaxUsers(1);
+    expect(await activeUsers()).toBe(3);
+
+    // Con más usuarios contratados vuelve a caber.
+    await setMaxUsers(5);
+    expect(await setTenantActive(formerTenant.id, true)).toEqual({ ok: true });
+    expect(await setStaffActive(adminA.id, true)).toEqual({ ok: true });
+
+    await prisma.organization.update({
+      where: { id: a.organizationId },
+      data: { plan: "FREE", maxUsers: 100 },
+    });
   });
 
   it("no toca al dueño ni a usuarios de otra arrendadora", async () => {

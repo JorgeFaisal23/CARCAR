@@ -99,6 +99,24 @@ export function NewOrganizationForm() {
               <option value="PREMIUM">Premium</option>
             </NativeSelect>
           </Field>
+          <Field
+            label="Usuarios contratados"
+            htmlFor="maxUsers"
+            required
+            hint="Cuentas activas que podrá tener: dueño, equipo e inquilinos. El dueño ocupa uno."
+          >
+            <Input
+              id="maxUsers"
+              name="maxUsers"
+              type="number"
+              inputMode="numeric"
+              min={1}
+              step={1}
+              required
+              defaultValue={1}
+              className="tabular-nums"
+            />
+          </Field>
         </div>
       </div>
 

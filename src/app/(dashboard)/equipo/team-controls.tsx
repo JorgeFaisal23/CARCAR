@@ -48,8 +48,8 @@ export function InviteStaffDialog({ atLimit = false }: { atLimit?: boolean }) {
   // Cada vez que se abre, el formulario se monta de nuevo y empieza en blanco.
   const [formKey, setFormKey] = useState(0);
 
-  // El diálogo siempre queda montado: si al dar de alta se llega al límite del
-  // plan, solo se deshabilita el botón. Desmontarlo perdería la contraseña
+  // El diálogo siempre queda montado: si al dar de alta se llenan los usuarios
+  // contratados, solo se deshabilita el botón. Desmontarlo perdería la contraseña
   // temporal que se está mostrando. La lista se refresca al cerrar.
   return (
     <Dialog
@@ -64,7 +64,7 @@ export function InviteStaffDialog({ atLimit = false }: { atLimit?: boolean }) {
         render={
           <Button
             disabled={atLimit}
-            title={atLimit ? "Alcanzaste el límite de usuarios de tu plan" : undefined}
+            title={atLimit ? "Ya usas todos tus usuarios contratados" : undefined}
           >
             <UserPlus className="size-4" aria-hidden />
             Agregar usuario

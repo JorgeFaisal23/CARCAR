@@ -78,9 +78,12 @@ export default async function SuperadminHomePage() {
                       {count(org.buildings, "propiedad", "propiedades")} ·{" "}
                       {count(org.units, "unidad", "unidades")} ·{" "}
                       {count(org.activeLeases, "contrato", "contratos")} ·{" "}
-                      {org.staff} en equipo
+                      {org.activeUsers} de {org.maxUsers} usuarios
                     </p>
                     <div className="flex gap-2">
+                      {org.activeUsers > org.maxUsers ? (
+                        <StatusBadge tone="warning">Excede lo contratado</StatusBadge>
+                      ) : null}
                       <StatusBadge tone={org.plan === "PREMIUM" ? "info" : "neutral"}>
                         {org.plan === "PREMIUM" ? "Premium" : "Gratuito"}
                       </StatusBadge>

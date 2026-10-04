@@ -18,13 +18,13 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Field, FormError } from "@/components/shared/form-field";
+import { Callout } from "@/components/shared/callout";
 import {
-  resetOwnerPassword,
   setOrganizationPlan,
   setOrganizationStatus,
+  setUserQuota,
   updateOrganization,
 } from "@/server/superadmin/actions";
-import { ResetAccessDialog } from "@/components/auth/reset-access-dialog";
 
 function SaveButton() {
   const { pending } = useFormStatus();
@@ -185,13 +185,74 @@ export function StatusControl({
   );
 }
 
-/** Nuevo acceso para un dueño que lo perdió (enlace por correo o contraseña temporal). */
-export function ResetOwnerPassword({ userId, email }: { userId: string; email: string }) {
+/**
+ * Usuarios contratados (cuentas activas: dueño, equipo e inquilinos). Bajarlo
+ * por debajo de los activos no saca a nadie.
+ */
+export function UserQuotaControl({
+  orgId,
+  maxUsers,
+  activeUsers,
+}: {
+  orgId: string;
+  maxUsers: number;
+  activeUsers: number;
+}) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string>();
+  const [draft, setDraft] = useState(String(maxUsers));
+
+  const value = Number(draft);
+  const valid = draft.trim() !== "" && Number.isInteger(value);
+  const belowActive = valid && value < activeUsers;
+
+  const save = () =>
+    startTransition(async () => {
+      if (!valid) {
+        setError("Escribe un número entero.");
+        return;
+      }
+      const result = await setUserQuota(orgId, value);
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      setError(undefined);
+      toast.success("Usuarios contratados guardados.");
+      router.refresh();
+    });
+
   return (
-    <ResetAccessDialog
-      email={email}
-      action={() => resetOwnerPassword(userId)}
-      label="Restablecer acceso"
-    />
+    <div className="space-y-4">
+      <Field
+        label="Usuarios contratados"
+        htmlFor="max-users"
+        hint="Cuentas activas que puede tener: dueño, equipo e inquilinos."
+      >
+        <Input
+          id="max-users"
+          type="number"
+          inputMode="numeric"
+          min={1}
+          step={1}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          className="max-w-40 tabular-nums"
+        />
+      </Field>
+      {belowActive ? (
+        <Callout tone="warning">
+          Tiene {activeUsers} cuentas activas. Nadie pierde acceso; solo no podrá
+          dar de alta ni reactivar cuentas hasta quedar por debajo de lo contratado.
+        </Callout>
+      ) : null}
+      <FormError message={error} />
+      <div className="flex justify-end">
+        <Button variant="outline" disabled={pending || value === maxUsers} onClick={save}>
+          {pending ? "Guardando…" : "Guardar"}
+        </Button>
+      </div>
+    </div>
   );
 }

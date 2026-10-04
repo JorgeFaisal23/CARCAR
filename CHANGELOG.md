@@ -1,0 +1,104 @@
+# Registro de Cambios (Changelog)
+
+Todos los cambios notables en este proyecto serán documentados en este archivo.
+
+El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/),
+y este proyecto se adhiere a [Semantic Versioning](https://semver.org/lang/es/) (SemVer 2.0.0).
+
+---
+
+## [0.7.0] - 2026-10-04
+
+### Añadido
+- **Control de cuota de usuarios contratados (`maxUsers`)**:
+  - Restricción y campo `maxUsers` en `Organization` para delimitar la cantidad máxima de usuarios activos (dueños, equipo e inquilinos) permitidos por arrendadora.
+  - Migración `20261004180000_user_quota` que inicializa el cupo de organizaciones existentes con su cantidad actual de cuentas activas y agrega restricción a nivel base de datos (`CHECK ("maxUsers" >= 1)`).
+  - Módulo de validación de cuotas (`src/server/user-quota.ts`) con función `userQuotaErrorFor`.
+  - Componente de interfaz `UserQuotaNote` y alertas preventivas en `/equipo` e `/inquilinos/nuevo` que deshabilitan altas y reactivaciones al alcanzar el cupo contratado.
+  - Indicador de usuarios contratados en la vista de plan en `/premium`.
+- **Panel de Superadministrador - Directorio de Usuarios (`/superadmin/usuarios`)**:
+  - Búsqueda global de cuentas por nombre o correo electrónico.
+  - Filtros dinámicos por arrendadora, rol (`OWNER`, `MEMBER`, `TENANT`) y estado de cuenta (activo / inactivo).
+  - Indicadores de estado de cuenta: sesión abierta, contraseña temporal pendiente de cambio, cuenta inactiva, arrendadora suspendida o cuenta bloqueada por intentos fallidos.
+- **Acciones de Soporte de Cuentas (`SupportActions`)**:
+  - Restablecimiento administrativo de credenciales temporales con diálogo de confirmación seguro.
+  - Cierre forzado de sesiones activas (`forceLogout`) desde la vista de superadministrador.
+  - Desbloqueo inmediato de intentos de acceso fallidos.
+  - Desactivación y reactivación de cuentas (con validación de cuota disponible al reactivar).
+  - Auditoría automática: cada intervención de soporte queda registrada en la bitácora (`AuditLog`) de la arrendadora respectiva.
+- **Gestión de Cupos en Organizaciones**:
+  - Configuración del cupo inicial de usuarios (`maxUsers`, por defecto 2) al crear una nueva arrendadora en `/superadmin/organizaciones/nueva`.
+  - Formulario para ajustar la cuota de usuarios en `/superadmin/organizaciones/[id]`, validando que el nuevo límite no sea inferior a los usuarios activos actuales.
+- **Pruebas Automatizadas**:
+  - Pruebas unitarias de cálculo de cuota de usuarios (`src/lib/plans.test.ts`).
+  - Pruebas de integración de soporte de usuarios y límites contratados (`src/test/accounts.int.test.ts` y `src/test/superadmin.int.test.ts`).
+
+### Cambiado
+- Las acciones de invitación y alta de equipo (`src/server/actions/team.ts`) y de inquilinos (`src/server/actions/tenants.ts`) ahora validan la cuota total de usuarios contratados antes de procesar el registro.
+- Navegación del panel de superadministrador actualizada con acceso directo a la sección "Usuarios".
+
+---
+
+## [0.6.0] - 2026-10-04
+
+### Añadido
+- Vista real de contratos vigentes en el menú principal del panel de administración.
+- Componente `ComingSoonBadge` e insignias "Próximamente" para plantillas contractuales, firma digital y exportación de reportes.
+- Encabezados de seguridad HTTP en `next.config.ts` (`Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy`) y remoción de cabecera `X-Powered-By`.
+
+### Cambiado
+- Actualización de `/premium` para transparentar exactamente las características activas en el producto.
+
+### Eliminado
+- Módulo no funcional de Automatizaciones (página, consultas y accesos de menú).
+
+---
+
+## [0.5.0] - 2026-10-04
+
+### Añadido
+- Edición y eliminación segura de propiedades y unidades con validación de historial (contratos vigentes, reservas o servicios capturados).
+- Recibos de edificio con modo de reparto (`splitMode`) y cuentas de servicios compartidas entre unidades y propiedades.
+- Creación y cancelación de reservas manuales con validación de traslape temporal contra contratos vigentes o en borrador bajo candado de concurrencia.
+- Pruebas de integración para aislamiento y validación de reglas de propiedades y reservas.
+
+---
+
+## [0.4.0] - 2026-10-04
+
+### Añadido
+- Ciclo de vida completo del contrato de arrendamiento: asignación a inquilinos existentes, renovación, terminación (inmediata o programada) y cancelación.
+- Barrido perezoso (`lazy sweep`) sin dependencia de servicios cron externos para terminación de contratos vencidos y actualización de cobros atrasados.
+- Pagos parciales con desglose en tabla `RentPayment`, registro de abonos y cálculos monetarios precisos en centavos.
+- Límites de propiedades y unidades para el plan gratuito con indicador de uso en `/premium`.
+
+---
+
+## [0.3.0] - 2026-10-04
+
+### Añadido
+- Bloqueo de sesión con cambio obligatorio de contraseña tras el primer acceso con credencial temporal.
+- Recuperación de contraseñas por correo electrónico con enlace de un solo uso y tokens protegidos con SHA-256.
+- Integración de correo mediante Nodemailer con plantillas dinámicas según la marca de la arrendadora.
+- Protección contra ataques de fuerza bruta con límite de intentos de acceso por IP y correo en base de datos.
+- Gestión de equipo (altas, roles y desactivación) respetando límites del plan gratuito.
+
+---
+
+## [0.2.0] - 2026-10-03
+
+### Añadido
+- Panel de superadministrador en `/superadmin` para alta y administración de arrendadoras, asignación de planes y suspensión de cuentas.
+- Acceso multi-marca en `/a/{slug}/login` con personalización de identidad visual (logotipo, colores, tipografía).
+- Soporte para despliegue en VPS mediante Dockerfile multi-etapa y docker-compose con PostgreSQL 18.
+- Scripts de inicialización del primer superadministrador (`create-superadmin`).
+
+---
+
+## [0.1.0] - 2026-10-03
+
+### Añadido
+- Arquitectura multi-inquilino con aislamiento a nivel de base de datos (`scoped.ts`) mediante `organizationId`.
+- Identidad de producto configurable mediante variables de entorno (`NEXT_PUBLIC_APP_*`).
+- Sistema de sesión única por usuario (`currentSessionId`) que invalida sesiones concurrentes.
+- Migraciones iniciales y suite de pruebas automáticas con Vitest.

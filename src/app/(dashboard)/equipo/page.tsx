@@ -12,10 +12,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { requireOrgUser } from "@/lib/auth/session";
-import { requireCurrentOrg } from "@/lib/org";
 import { initials, shortDate } from "@/lib/format";
 import { ROLE_DESCRIPTIONS, ROLE_LABELS } from "@/lib/labels";
-import { PLAN_LIMITS } from "@/lib/plans";
+import { UserQuotaNote } from "@/components/shared/user-quota-note";
+import { userQuota } from "@/server/user-quota";
 import { canManageOrganization } from "@/lib/permissions";
 import { InviteStaffDialog, StaffRowActions } from "./team-controls";
 
@@ -23,10 +23,9 @@ export const metadata: Metadata = { title: "Equipo" };
 
 export default async function TeamPage() {
   const { session, db } = await requireOrgUser(["OWNER", "ADMIN"]);
-  const org = await requireCurrentOrg();
   const isOwner = canManageOrganization(session.role);
 
-  const [staff, logs] = await Promise.all([
+  const [staff, logs, quota] = await Promise.all([
     db.user.findMany({
       where: { role: { in: ["OWNER", "ADMIN", "VIEWER"] } },
       orderBy: [{ role: "asc" }, { createdAt: "asc" }],
@@ -51,26 +50,23 @@ export default async function TeamPage() {
         user: { select: { name: true } },
       },
     }),
+    userQuota(db),
   ]);
 
-  const limit = PLAN_LIMITS[org.plan].staff;
-  const activeStaff = staff.filter((m) => m.role !== "OWNER" && m.active).length;
-  const atLimit = activeStaff >= limit;
 
   return (
     <>
       <PageHeader
         title="Equipo"
         description="Quién tiene acceso al panel y qué puede hacer. Los inquilinos entran por su portal y se administran en Inquilinos."
-        action={isOwner ? <InviteStaffDialog atLimit={atLimit} /> : null}
+        action={
+          isOwner ? (
+            <InviteStaffDialog atLimit={quota.full} />
+          ) : null
+        }
       />
 
-      {Number.isFinite(limit) ? (
-        <p className="text-muted-foreground text-sm">
-          Plan gratuito: {activeStaff} de {limit}{" "}
-          {limit === 1 ? "usuario de equipo" : "usuarios de equipo"} además del dueño.
-        </p>
-      ) : null}
+      <UserQuotaNote active={quota.active} max={quota.max} />
 
       <Card>
         <CardHeader>

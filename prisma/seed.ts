@@ -676,6 +676,8 @@ async function main() {
       name: "Rentas del Valle",
       brandName: "Rentas del Valle",
       plan: "PREMIUM",
+      // Dueño, 2 de equipo y 9 inquilinos activos: 12 de 15.
+      maxUsers: 15,
       primaryColor: "#0F766E",
       radius: "SOFT",
       fontFamily: "Inter",
@@ -691,6 +693,8 @@ async function main() {
       name: "Casa Norte",
       brandName: "Casa Norte",
       plan: "FREE",
+      // Dueño y 1 inquilino: lleno al sumar uno más, para enseñar el aviso.
+      maxUsers: 3,
       primaryColor: "#1D4ED8",
       radius: "ROUND",
       fontFamily: "Poppins",

@@ -54,6 +54,9 @@ model Organization {
   loginBackgroundUrl String?
   contactEmail       String?
   contactPhone       String?
+  /// Usuarios contratados: cuentas activas que puede tener (dueño, equipo e
+  /// inquilinos). Solo lo fija la plataforma; el software se cobra por usuario.
+  maxUsers           Int
   /// Última vez que corrió el barrido de vencimientos (src/lib/sweep.ts).
   lastSweepAt        DateTime?
   createdAt          DateTime     @default(now())

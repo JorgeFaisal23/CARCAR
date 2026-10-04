@@ -28,6 +28,17 @@ export default async function SuperadminLayout({
           <span className="text-muted-foreground hidden border-l pl-3 text-sm sm:inline">
             Plataforma
           </span>
+          <nav className="flex items-center gap-3 border-l pl-3 text-sm">
+            <Link href="/superadmin" className="text-muted-foreground hover:text-foreground transition-colors">
+              Arrendadoras
+            </Link>
+            <Link
+              href="/superadmin/usuarios"
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Usuarios
+            </Link>
+          </nav>
           <div className="ml-auto flex items-center gap-2">
             <Link
               href="/superadmin/cuenta"

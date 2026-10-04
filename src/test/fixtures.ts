@@ -9,7 +9,8 @@ export async function createOrgFixture(label: string) {
   const tag = `${label}-${randomUUID().slice(0, 8)}`;
 
   const org = await prisma.organization.create({
-    data: { slug: tag, name: `Arrendadora ${label}`, brandName: `Marca ${label}` },
+    // Usuarios contratados de sobra: las pruebas que miden el cupo lo bajan.
+    data: { slug: tag, name: `Arrendadora ${label}`, brandName: `Marca ${label}`, maxUsers: 100 },
   });
   const organizationId = org.id;
 

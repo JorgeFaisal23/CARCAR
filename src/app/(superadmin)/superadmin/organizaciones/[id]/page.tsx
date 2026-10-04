@@ -16,10 +16,11 @@ import { requireSuperadmin } from "@/lib/auth/session";
 import { getOrganizationDetail } from "@/server/superadmin/queries";
 import { ROLE_LABELS } from "@/lib/labels";
 import { shortDate } from "@/lib/format";
+import { SupportActions } from "@/components/superadmin/support-actions";
 import {
   OrganizationDetailsForm,
   PlanControl,
-  ResetOwnerPassword,
+  UserQuotaControl,
   StatusControl,
 } from "./org-controls";
 
@@ -39,6 +40,8 @@ export default async function OrganizationPage({ params }: Params) {
   if (!org) notFound();
 
   const loginPath = `/a/${org.slug}/login`;
+  const used = org.activeUsers;
+  const overQuota = used.total > org.maxUsers;
 
   return (
     <>
@@ -83,6 +86,37 @@ export default async function OrganizationPage({ params }: Params) {
         <Count label="Inquilinos" value={org.tenants} />
       </div>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Usuarios contratados</CardTitle>
+          <CardDescription>
+            El software se cobra por usuario. Cada cuenta activa ocupa un lugar;
+            las desactivadas no cuentan. Solo la plataforma cambia este número.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-6 lg:grid-cols-2">
+          <div className="space-y-3">
+            <p className="text-2xl font-semibold tabular-nums">
+              {used.total}
+              <span className="text-muted-foreground text-base font-normal">
+                {" "}
+                de {org.maxUsers} en uso
+              </span>
+            </p>
+            <p className="text-muted-foreground text-sm tabular-nums">
+              {used.owner} {used.owner === 1 ? "dueño" : "dueños"} · {used.staff} de equipo ·{" "}
+              {used.tenants} {used.tenants === 1 ? "inquilino" : "inquilinos"}
+            </p>
+            {overQuota ? (
+              <StatusBadge tone="warning">
+                {used.total - org.maxUsers} por encima de lo contratado
+              </StatusBadge>
+            ) : null}
+          </div>
+          <UserQuotaControl orgId={org.id} maxUsers={org.maxUsers} activeUsers={used.total} />
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
@@ -103,7 +137,7 @@ export default async function OrganizationPage({ params }: Params) {
               <CardTitle>Plan</CardTitle>
               <CardDescription>
                 {org.plan === "PREMIUM"
-                  ? "Sin límite de propiedades, unidades ni equipo; con reportes y bitácora."
+                  ? "Sin límite de propiedades ni unidades; con reportes y bitácora. No cambia los usuarios contratados."
                   : "Plan gratuito: las secciones Premium se ven bloqueadas."}
               </CardDescription>
             </CardHeader>
@@ -132,8 +166,14 @@ export default async function OrganizationPage({ params }: Params) {
         <CardHeader>
           <CardTitle>Equipo</CardTitle>
           <CardDescription>
-            Personas con acceso al panel de la arrendadora. Desde aquí solo se
-            atiende al dueño; el resto lo administra la propia arrendadora.
+            Personas con acceso al panel de la arrendadora. La plataforma da
+            soporte a cualquiera de ellas; cada intervención queda en su bitácora.{" "}
+            <Link
+              href={`/superadmin/usuarios?org=${org.id}&rol=TENANT`}
+              className="text-foreground underline-offset-4 hover:underline"
+            >
+              Ver inquilinos
+            </Link>
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -149,14 +189,15 @@ export default async function OrganizationPage({ params }: Params) {
                     {member.email} · alta el {shortDate(member.createdAt)}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <StatusBadge tone={member.active ? "success" : "neutral"}>
                     {ROLE_LABELS[member.role]}
                     {member.active ? "" : " · inactivo"}
                   </StatusBadge>
-                  {member.role === "OWNER" ? (
-                    <ResetOwnerPassword userId={member.id} email={member.email} />
+                  {member.lockedUntil ? (
+                    <StatusBadge tone="danger">Acceso bloqueado</StatusBadge>
                   ) : null}
+                  <SupportActions account={member} />
                 </div>
               </li>
             ))}
