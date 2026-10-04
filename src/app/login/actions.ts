@@ -1,5 +1,6 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
@@ -11,12 +12,14 @@ import {
   getSession,
   loginPathFor,
 } from "@/lib/auth/session";
+import { ORG_COOKIE, ORG_COOKIE_MAX_AGE } from "@/lib/auth/paths";
 import { safeRedirect } from "@/lib/redirect";
 
 const loginSchema = z.object({
   email: z.string().trim().toLowerCase().email("Escribe un correo válido."),
   password: z.string().min(1, "Escribe tu contraseña."),
   redirigir: z.string().optional(),
+  orgSlug: z.string().optional(),
 });
 
 export type LoginState = { error?: string };
@@ -42,13 +45,14 @@ export async function login(
     email: formData.get("email"),
     password: formData.get("password"),
     redirigir: formData.get("redirigir") || undefined,
+    orgSlug: formData.get("orgSlug") || undefined,
   });
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Revisa los datos." };
   }
 
-  const { email, password, redirigir } = parsed.data;
+  const { email, password, redirigir, orgSlug } = parsed.data;
   const user = await prisma.user.findUnique({
     where: { email },
     include: { organization: { select: { slug: true, status: true } } },
@@ -62,6 +66,13 @@ export async function login(
   // Mismo mensaje para usuario inexistente, inactivo y contraseña incorrecta:
   // no vale la pena revelar cuáles correos existen.
   if (!user || !user.active || !passwordOk) {
+    return { error: INVALID };
+  }
+
+  // En el acceso con marca solo entran usuarios de esa arrendadora. Se
+  // responde igual que con una contraseña incorrecta: el acceso de una
+  // arrendadora no debe confirmar qué correos existen en otras.
+  if (orgSlug && user.organization?.slug !== orgSlug) {
     return { error: INVALID };
   }
 
@@ -91,6 +102,21 @@ export async function login(
     orgId: user.organizationId,
     orgSlug: user.organization?.slug ?? null,
   });
+
+  // Recuerda la arrendadora para mandar a su acceso con marca a quien vuelva
+  // sin sesión (ver el proxy). El superadministrador usa el genérico.
+  const store = await cookies();
+  if (user.organization) {
+    store.set(ORG_COOKIE, user.organization.slug, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: ORG_COOKIE_MAX_AGE,
+    });
+  } else {
+    store.delete(ORG_COOKIE);
+  }
 
   redirect(safeRedirect(redirigir, user.role));
 }

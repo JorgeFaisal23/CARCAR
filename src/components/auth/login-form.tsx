@@ -7,18 +7,9 @@ import { Callout } from "@/components/shared/callout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { login, type LoginState } from "./actions";
+import { login, type LoginState } from "@/app/login/actions";
 import { ROLE_DESCRIPTIONS, ROLE_LABELS } from "@/lib/labels";
-import type { Role } from "@/lib/auth/jwt";
-
-const DEMO_ACCOUNTS: { email: string; role: Role }[] = [
-  { email: "dueno@demo.mx", role: "OWNER" },
-  { email: "admin@demo.mx", role: "ADMIN" },
-  { email: "consulta@demo.mx", role: "VIEWER" },
-  { email: "inquilino@demo.mx", role: "TENANT" },
-];
-
-const DEMO_PASSWORD = "demo1234";
+import { DEMO_PASSWORD, type DemoAccount } from "@/lib/demo-accounts";
 
 /** Avisos para `?motivo=` (ver SessionProblem en src/lib/auth/session.ts). */
 const SESSION_NOTICES: Record<string, { title: string; text: string }> = {
@@ -49,12 +40,15 @@ function SubmitButton() {
 export function LoginForm({
   redirigir,
   motivo,
-  showDemoAccounts = false,
+  orgSlug,
+  demoAccounts = [],
 }: {
   redirigir?: string;
   motivo?: string;
+  /** En el acceso con marca: solo entran usuarios de esa arrendadora. */
+  orgSlug?: string;
   /** Solo en modo demostración (ver isDemoMode en src/lib/features.ts). */
-  showDemoAccounts?: boolean;
+  demoAccounts?: DemoAccount[];
 }) {
   const [state, formAction] = useActionState<LoginState, FormData>(login, {});
   const [email, setEmail] = useState("");
@@ -74,6 +68,7 @@ export function LoginForm({
 
       <form action={formAction} className="space-y-4">
         <input type="hidden" name="redirigir" value={redirigir ?? ""} />
+        <input type="hidden" name="orgSlug" value={orgSlug ?? ""} />
 
         <div className="space-y-2">
           <Label htmlFor="email">Correo electrónico</Label>
@@ -109,7 +104,7 @@ export function LoginForm({
         <SubmitButton />
       </form>
 
-      {showDemoAccounts ? (
+      {demoAccounts.length > 0 ? (
         <div className="space-y-3 rounded-lg border border-dashed p-4">
           <div>
             <p className="text-sm font-medium">Cuentas de demostración</p>
@@ -119,7 +114,7 @@ export function LoginForm({
             </p>
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
-            {DEMO_ACCOUNTS.map((account) => (
+            {demoAccounts.map((account) => (
               <button
                 key={account.email}
                 type="button"
@@ -133,7 +128,10 @@ export function LoginForm({
                   {ROLE_LABELS[account.role]}
                 </span>
                 <span className="text-muted-foreground block text-xs text-pretty">
-                  {ROLE_DESCRIPTIONS[account.role]}
+                  {/* En el acceso genérico hay cuentas de varias arrendadoras. */}
+                  {!orgSlug && account.orgName
+                    ? account.orgName
+                    : ROLE_DESCRIPTIONS[account.role]}
                 </span>
               </button>
             ))}

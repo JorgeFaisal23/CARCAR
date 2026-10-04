@@ -71,6 +71,7 @@ export default async function PremiumPage() {
   const { session } = await requireOrgUser(["OWNER", "ADMIN"]);
   const org = await requireCurrentOrg();
   const isPremium = org.plan === "PREMIUM";
+  const supportEmail = process.env.SUPPORT_EMAIL?.trim();
 
   return (
     <>
@@ -83,8 +84,18 @@ export default async function PremiumPage() {
         <div className="flex gap-3 rounded-lg border border-dashed p-4 text-sm">
           <Info className="text-muted-foreground mt-0.5 size-4 shrink-0" aria-hidden />
           <p className="text-muted-foreground text-pretty">
-            El plan lo administra {APP.name}. Para cambiarlo, contacta al
-            administrador de la plataforma.
+            El plan lo administra {APP.name}. Para cambiarlo,{" "}
+            {supportEmail ? (
+              <>
+                escribe a{" "}
+                <a href={`mailto:${supportEmail}`} className="text-foreground underline">
+                  {supportEmail}
+                </a>
+                .
+              </>
+            ) : (
+              "contacta al administrador de la plataforma."
+            )}
           </p>
         </div>
       ) : null}

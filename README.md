@@ -43,6 +43,33 @@ la cuenta de la plataforma:
 | `dueno2@demo.mx` | Casa Norte (`demo2`, gratuito) | Arrendador | Lo mismo, sobre sus propios datos |
 | `inquilino2@demo.mx` | Casa Norte | Inquilino | Portal |
 
+## Accesos y plataforma
+
+| URL | Quién | Marca |
+|---|---|---|
+| `/a/{slug}/login` | Usuarios de esa arrendadora (dueño, equipo, inquilinos) | La de la arrendadora |
+| `/login` | Cualquier usuario y el superadministrador | La del producto |
+| `/superadmin` | Solo el superadministrador | La del producto |
+
+- **Alta de arrendadoras:** el superadministrador las crea en
+  `/superadmin/organizaciones/nueva` con su dueño; se genera una contraseña
+  temporal que se muestra una sola vez. No hay registro público.
+- **Plan y acceso:** desde el detalle de cada arrendadora se cambia su plan y
+  se suspende o reactiva. Suspender saca de inmediato a todos sus usuarios y
+  no borra nada. Cada cambio queda en la bitácora de la arrendadora.
+- **El superadministrador no ve datos de operación** (propiedades, contratos,
+  cobros): solo conteos y el equipo de cada arrendadora.
+- El navegador recuerda la última arrendadora con la que se entró (cookie
+  `app_org`) para mandar a su acceso con marca a quien vuelve sin sesión.
+- **Primer superadministrador:** en desarrollo lo crea el seed
+  (`SEED_SUPERADMIN_EMAIL`). En producción, donde el seed nunca se corre:
+
+  ```bash
+  npx tsx scripts/create-superadmin.ts correo@ejemplo.com "Nombre Apellido"
+  ```
+
+  Imprime una contraseña temporal una sola vez.
+
 ## Varias arrendadoras en la misma app
 
 Cada tabla con datos de una arrendadora lleva `organizationId`. Las páginas y
@@ -194,8 +221,9 @@ src/
   real (importar el enlace iCal del anuncio) y sus limitaciones están
   documentados en [`src/lib/airbnb/README.md`](src/lib/airbnb/README.md).
 - **El plan lo cambia la plataforma**, no el arrendador: el seed deja a Rentas
-  del Valle en Premium y a Casa Norte en gratuito para enseñar ambos casos. El
-  panel del superadministrador (siguiente fase) lo cambiará por arrendadora.
+  del Valle en Premium y a Casa Norte en gratuito para enseñar ambos casos, y
+  el superadministrador lo cambia desde su panel. En `/premium` el dueño ve a
+  quién escribir (`SUPPORT_EMAIL`).
 - **Las imágenes se guardan como data URL** en la base de datos: el logo de la
   marca y los comprobantes de pago. Antes de subirse, los comprobantes se
   reescalan y recomprimen a JPEG en el navegador

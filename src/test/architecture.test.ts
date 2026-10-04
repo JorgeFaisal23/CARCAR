@@ -59,19 +59,29 @@ describe("aislamiento entre arrendadoras", () => {
   });
 
   it("toda server action exportada exige sesión antes de hacer nada", () => {
-    const actionsDir = join(SRC, "server", "actions");
     const missing: string[] = [];
 
-    for (const name of readdirSync(actionsDir)) {
-      const source = readFileSync(join(actionsDir, name), "utf8");
-      if (!source.startsWith('"use server"')) continue;
+    for (const dir of [join(SRC, "server", "actions"), join(SRC, "server", "superadmin")]) {
+      for (const name of readdirSync(dir)) {
+        const source = readFileSync(join(dir, name), "utf8");
+        if (!source.startsWith('"use server"')) continue;
 
-      const chunks = source.split(/^export async function /m).slice(1);
-      for (const chunk of chunks) {
-        const fn = chunk.slice(0, chunk.indexOf("("));
-        if (!/await require\w*Action\(/.test(chunk)) missing.push(`${name}: ${fn}`);
+        const chunks = source.split(/^export async function /m).slice(1);
+        for (const chunk of chunks) {
+          const fn = chunk.slice(0, chunk.indexOf("("));
+          if (!/await require\w*Action\(/.test(chunk)) missing.push(`${name}: ${fn}`);
+        }
       }
     }
     expect(missing).toEqual([]);
+  });
+
+  it("las acciones de plataforma exigen superadministrador", () => {
+    const source = readFileSync(join(SRC, "server", "superadmin", "actions.ts"), "utf8");
+    const chunks = source.split(/^export async function /m).slice(1);
+    expect(chunks.length).toBeGreaterThan(0);
+    for (const chunk of chunks) {
+      expect(chunk).toMatch(/await requireSuperadminAction\(/);
+    }
   });
 });

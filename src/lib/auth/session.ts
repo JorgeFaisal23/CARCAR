@@ -14,6 +14,8 @@ import {
   verifySession,
 } from "./jwt";
 
+export { loginPathFor } from "./paths";
+
 /** Lee la sesión actual. Devuelve null si no hay o si el token no es válido. */
 export async function getSession(): Promise<SessionPayload | null> {
   const store = await cookies();
@@ -84,21 +86,15 @@ export async function findSessionProblem(
   const user = await loadAccount(session.sub);
   if (!user || !user.active) return "cuenta_inactiva";
   if (user.organizationId !== session.orgId) return "cuenta_inactiva";
-  if (user.currentSessionId !== session.sessionId) return "sesion_duplicada";
+  // La suspensión va antes que la sesión duplicada: al suspender se cierran
+  // las sesiones, y el aviso que importa es el de la suspensión.
   if (user.organization && user.organization.status !== "ACTIVE") {
     return "organizacion_suspendida";
   }
+  if (user.currentSessionId !== session.sessionId) return "sesion_duplicada";
   return null;
 }
 
-/**
- * A dónde vuelve alguien al salir. Mientras no exista el acceso con marca
- * (/a/{slug}/login) todos vuelven al genérico.
- */
-export function loginPathFor(orgSlug: string | null | undefined) {
-  void orgSlug;
-  return "/login";
-}
 
 // ------------------------------------------------------------ páginas
 
