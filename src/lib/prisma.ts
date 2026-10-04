@@ -2,7 +2,7 @@ import "server-only";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
 
-// Neon cierra conexiones ociosas; el adaptador de pg mantiene el pool.
+// El adaptador de pg mantiene el pool de conexiones.
 // En desarrollo guardamos el cliente en globalThis para que el hot reload no
 // abra un pool nuevo en cada recarga.
 const globalForPrisma = globalThis as unknown as {

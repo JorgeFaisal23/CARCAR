@@ -101,7 +101,7 @@ Variables de entorno (ver `.env.example`):
 | Variable | Para qué |
 |---|---|
 | `DATABASE_URL` | Conexión que usa la app en ejecución |
-| `DIRECT_URL` | Conexión directa (sin pooler); Prisma la usa para migrar |
+| `DIRECT_URL` | Conexión que Prisma usa para migrar (igual a `DATABASE_URL` salvo que haya un pooler) |
 | `AUTH_SECRET` | Clave con la que se firman las sesiones |
 | `NEXT_PUBLIC_APP_NAME` | Nombre del producto (placeholder `AppRentas`). También `NEXT_PUBLIC_APP_TAGLINE`, `NEXT_PUBLIC_APP_COLOR` y `NEXT_PUBLIC_APP_URL`. Se incrustan al compilar |
 | `DEMO_MODE` | `true` muestra las cuentas de prueba en el acceso. Nunca en producción |
@@ -235,12 +235,6 @@ npx prisma migrate resolve --applied 0_init
 Los datos de demostración nunca se cargan en el despliegue: `npm run db:seed`
 solo se corre a mano y nunca contra producción.
 
-El build no necesita la base: `getOrganization` cae a la marca por defecto si
-no puede leerla ([`src/lib/org.ts`](src/lib/org.ts)). Sin eso, la 404 —que Next
-prerenderiza y que hereda los tokens de marca del layout raíz— tumbaba el
-despliegue entero cada vez que Neon estaba dormida.
-
-> La base gratuita de Neon se suspende tras un rato de inactividad, y el plan
-> gratuito de Render también apaga el servicio cuando no recibe tráfico:
-> conviene abrir la demo un par de minutos antes de presentarla para que la
-> primera carga no tarde.
+El build no necesita la base: la marca se lee de la sesión en cada petición
+y, si la base no contesta, se pinta la del producto
+([`src/lib/org.ts`](src/lib/org.ts)).

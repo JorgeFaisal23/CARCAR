@@ -3,8 +3,8 @@ import { defineConfig } from "prisma/config";
 
 /**
  * Prisma 7 lee las URLs de conexión desde aquí (ya no desde schema.prisma).
- * Para DDL se usa la conexión directa (sin pooler): pgbouncer no soporta los
- * comandos que Prisma necesita para crear o alterar tablas.
+ * Para migrar se prefiere DIRECT_URL: si la app pasa por un pooler de
+ * conexiones, las migraciones necesitan una conexión directa a PostgreSQL.
  *
  * `migrate dev` necesita una base auxiliar vacía (shadow) para calcular
  * diferencias; solo se usa en desarrollo.
