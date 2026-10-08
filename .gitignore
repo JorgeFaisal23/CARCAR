@@ -60,3 +60,6 @@ skills-lock.json
 /docs/internos/
 *.xlsx
 *.docx
+
+# Llaves SSH del VPS
+/Llaves/

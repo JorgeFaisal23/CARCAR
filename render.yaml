@@ -1,0 +1,54 @@
+# Blueprint de Render para la DEMO (producción real: VPS con Docker, ver README).
+# En el panel: New > Blueprint, apunta al repo y a la rama `develop`.
+#
+# La app se construye con el mismo Dockerfile del VPS. Render pasa las
+# variables de entorno como argumentos de build, así que NEXT_PUBLIC_APP_* se
+# incrustan al compilar. Las migraciones se aplican al arrancar el contenedor
+# (docker-entrypoint.sh).
+#
+# La base gratuita de Render caduca a los 30 días: hay que recrearla y volver a
+# correr el seed (README, "Demo en Render").
+databases:
+  - name: apprentas-demo-db
+    plan: free
+    region: ohio
+    databaseName: apprentas
+    user: apprentas
+
+services:
+  - type: web
+    name: apprentas-demo
+    runtime: docker
+    plan: free
+    region: ohio
+    branch: develop
+    dockerfilePath: ./Dockerfile
+    envVars:
+      # Conexión interna a la base de la demo.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: apprentas-demo-db
+          property: connectionString
+      - key: DIRECT_URL
+        fromDatabase:
+          name: apprentas-demo-db
+          property: connectionString
+      - key: AUTH_SECRET
+        generateValue: true
+      # Identidad del producto: se incrusta en el build; cambiarla requiere
+      # volver a desplegar.
+      - key: NEXT_PUBLIC_APP_NAME
+        value: AppRentas
+      - key: NEXT_PUBLIC_APP_TAGLINE
+        value: Administración de rentas
+      - key: NEXT_PUBLIC_APP_COLOR
+        value: "#12263F"
+      # URL pública (https://<servicio>.onrender.com). Se conoce al crear el
+      # servicio; Render la pide en el primer despliegue.
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false
+      - key: APP_URL
+        sync: false
+      # Demo: la pantalla de acceso ofrece las cuentas del seed.
+      - key: DEMO_MODE
+        value: "true"

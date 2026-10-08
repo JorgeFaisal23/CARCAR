@@ -9,6 +9,12 @@ y este proyecto se adhiere a [Semantic Versioning](https://semver.org/lang/es/) 
 
 ## [Sin publicar]
 
+### Añadido
+- **Demo en Render**: `render.yaml` despliega la rama `develop` con el `Dockerfile` del VPS y un PostgreSQL gratuito de Render, con `DEMO_MODE=true`. Pasos y limitaciones (base que caduca a los 30 días, sin SMTP) en el README, sección "Demo en Render".
+
+### Seguridad
+- La carpeta `Llaves/` queda en `.gitignore` para que las llaves SSH nunca se suban al repositorio.
+
 ### Corregido
 - **Inicio de sesión por HTTP**: la cookie de sesión ya no es `secure` siempre que la app corre en producción. Ahora sigue el encabezado `X-Forwarded-Proto` del proxy, y la variable `COOKIE_SECURE` (`true`/`false`) la fuerza o la apaga. Antes, al entrar sin HTTPS (por ejemplo, una prueba por `http://IP:3000`), el navegador descartaba la cookie y no se podía iniciar sesión. Se trajo de `main` (`aeb7ab8`).
 

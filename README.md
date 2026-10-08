@@ -341,6 +341,36 @@ Comandos del contenedor ([`docker-entrypoint.sh`](docker-entrypoint.sh)):
 | `baseline` | Marca una base creada antes de las migraciones como al día con `0_init` (una sola vez) |
 | `create-superadmin correo "Nombre"` | Crea un superadministrador con contraseña temporal |
 
+## Demo en Render
+
+La demostración pública vive en Render y se despliega desde la rama `develop`
+con [`render.yaml`](render.yaml): la misma imagen de Docker más un PostgreSQL
+gratuito de Render. Producción sigue en el VPS.
+
+1. En Render: **New > Blueprint**, el repositorio y la rama `develop`. Crea la
+   base `apprentas-demo-db` y el servicio `apprentas-demo`.
+2. Cuando lo pida, llena `NEXT_PUBLIC_APP_URL` y `APP_URL` con la URL del
+   servicio (`https://apprentas-demo.onrender.com` o la que asigne Render). Si
+   no se conoce aún, despliega y vuelve a desplegar después de definirlas.
+3. El primer arranque aplica las migraciones. Para cargar los datos de
+   demostración, copia la **External Database URL** de la base y corre el seed
+   desde tu equipo. **El seed borra todo lo que haya en esa base**: revisa que
+   la URL sea la de la demo.
+
+   ```powershell
+   $env:DIRECT_URL = "<External Database URL>"; npm run db:seed; Remove-Item Env:DIRECT_URL
+   ```
+
+Limitaciones del plan gratuito:
+
+- **La base caduca a los 30 días.** Hay que borrarla, crear otra desde el
+  blueprint (**Manual Sync**) y repetir el seed.
+- **El servicio se duerme** tras unos 15 minutos sin visitas; la primera
+  petición después tarda cerca de un minuto.
+- **Sin correo.** Render no permite SMTP desde servicios gratuitos, así que no
+  se define `SMTP_HOST`: las altas y los restablecimientos dan una contraseña
+  temporal.
+
 ### Base existente creada con `db push`
 
 La base que ya está en producción se creó con `prisma db push`, antes de que
